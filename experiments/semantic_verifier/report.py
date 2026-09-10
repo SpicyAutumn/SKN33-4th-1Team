@@ -30,7 +30,8 @@ def summarize(folder,key_path):
             if response['run_id']!=rid or response['is_mock']!=plan['is_mock'] or response['request_sha256']!=digest(row['request']):
                 raise ValueError('Result provenance/hash mismatch')
             envelope=response['envelope']; raw=envelope['message']['content']
-            result.update(raw=raw,elapsed_seconds=response['elapsed_seconds'],metrics={
+            result.update(raw=raw,finish_reason=envelope.get('done_reason'),
+                elapsed_seconds=response['elapsed_seconds'],metrics={
                 k:envelope.get(k) for k in ('load_duration','prompt_eval_count','prompt_eval_cached_count',
                                            'prompt_eval_duration','eval_count','eval_duration','total_duration')})
             try:

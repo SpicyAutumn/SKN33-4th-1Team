@@ -8,6 +8,29 @@ import unittest
 from unittest.mock import patch
 import runner
 from report import summarize
+from transport import RecordedTransport, TransportStopped
+
+
+class FakeHTTPResponse:
+    status_code = 200
+    def __init__(self, envelope):
+        self.data = json.dumps(envelope).encode('utf-8')
+        self.closed = False
+    def iter_content(self, chunk_size):
+        yield self.data
+    def close(self): self.closed = True
+
+
+class FakeHTTPSession:
+    def __init__(self, envelopes):
+        self.responses = [FakeHTTPResponse(e) for e in envelopes]
+        self.calls = 0
+        self.closed = False
+    def post(self, url, **kwargs):
+        response = self.responses[self.calls]
+        self.calls += 1
+        return response
+    def close(self): self.closed = True
 
 
 class Fake:
@@ -86,6 +109,56 @@ class Tests(unittest.TestCase):
             args=SimpleNamespace(approve_live=True,environment_record=p,deployed_at='2026-09-10T00:00:00+00:00',
                                  output_root=Path(d),base_url='http://127.0.0.1:11435')
             with self.assertRaises(ValueError): runner.preflight(args,datetime(2026,9,10,0,1,tzinfo=timezone.utc))
+
+    def check_http_truncation(self, reason, content):
+        warm = dict(done=True, done_reason='stop', message=dict(content=json.dumps(dict(
+            verdict='needs_review', evidence=[], explanation='mock warmup'))))
+        short = dict(done=True, message=dict(content=content))
+        if reason is not None: short['done_reason'] = reason
+        session = FakeHTTPSession([warm, short])
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)/'run'
+            transport = RecordedTransport(base_url='http://127.0.0.1:11435',output_dir=folder,
+                max_calls=7,max_seconds=120,timeout=30,session=session)
+            with self.assertRaises(runner.InvalidResult) as caught:
+                runner.collect(self.bundle,transport,folder,lambda:100)
+            self.assertEqual(caught.exception.category,'truncated_or_incomplete')
+            self.assertEqual(session.calls,2)
+            self.assertTrue(session.closed)
+            self.assertTrue(all(r.closed for r in session.responses))
+            self.assertEqual((folder/'002-raw.bin').read_bytes(),session.responses[1].data)
+            self.assertEqual(runner.read(folder/'V02-A.json')['envelope']['message']['content'],content)
+            states=runner.read(folder/'completion.json')['states']
+            self.assertEqual(states['V02-A'],'truncated_or_incomplete')
+            self.assertEqual(states['V02-B'],'not_run')
+            report=summarize(folder,runner.HERE/'example_key.json')
+            first=report['rows'][0]
+            self.assertEqual(first['raw'],content)
+            self.assertEqual(first['finish_reason'],reason)
+            self.assertEqual(first['category'],'truncated_or_incomplete')
+            self.assertIsNone(first['predicted'])
+            self.assertTrue(all(r['category']=='not_run' for r in report['rows'][1:]))
+
+    def test_http_length_preserved_in_report(self):
+        self.check_http_truncation('length','{"verdict":"supported", "explanation":"unfinished')
+
+    def test_http_unknown_finish_not_accepted(self):
+        self.check_http_truncation('unknown','{"verdict":"supported","evidence":[],"explanation":"mock"}')
+
+    def test_http_missing_finish_not_accepted(self):
+        self.check_http_truncation(None,'partial output')
+
+    def test_incomplete_http_envelope_still_rejected(self):
+        session=FakeHTTPSession([dict(done=False,message=dict(content='partial'))])
+        with tempfile.TemporaryDirectory() as d:
+            folder=Path(d)/'run'
+            t=RecordedTransport(base_url='http://127.0.0.1:11435',output_dir=folder,
+                max_calls=7,max_seconds=120,timeout=30,session=session)
+            with self.assertRaises(TransportStopped):
+                runner.collect(self.bundle,t,folder,lambda:100)
+            self.assertEqual(session.calls,1)
+            self.assertTrue((folder/'001-raw.bin').exists())
+            self.assertEqual(runner.read(folder/'completion.json')['states']['W00-A'],'collection_failed')
 
 
 if __name__=='__main__': unittest.main()

@@ -119,8 +119,9 @@ class RecordedTransport:
             envelope = json.loads(data.decode('utf-8'))
             if not isinstance(envelope, dict) or envelope.get('done') is not True:
                 raise ValueError('Incomplete envelope')
-            if envelope.get('done_reason') != 'stop':
-                raise ValueError('Truncated or unknown finish reason')
+            # A complete HTTP envelope can contain a length-limited model answer.
+            # Return it for per-item persistence before runner validates completion.
+            # This is not quality acceptance; runner must stop on non-stop reasons.
             if not isinstance(envelope.get('message'), dict) or not isinstance(envelope['message'].get('content'), str):
                 raise ValueError('Missing model content')
             self._write(prefix+'-result.json', {'stage': stage, 'envelope': envelope,
