@@ -77,6 +77,56 @@ class Tests(unittest.TestCase):
                             self.bundle['inputs'][0],'stop')
     def test_truncation(self):
         with self.assertRaises(runner.InvalidResult): runner.validate('{}',{},'length')
+    def test_required_evidence_rejects_empty(self):
+        for verdict in ('supported','contradicted','meaning_weakened'):
+            with self.subTest(verdict=verdict):
+                raw=json.dumps(dict(verdict=verdict,evidence=[],explanation='mock'))
+                with self.assertRaises(runner.InvalidResult) as caught:
+                    runner.validate(raw,self.bundle['inputs'][0],'stop')
+                self.assertEqual(caught.exception.category,'missing_evidence')
+
+    def test_required_evidence_accepts_exact_quote(self):
+        item=self.bundle['inputs'][0]; source=item['sources'][0]
+        for verdict in ('supported','contradicted','meaning_weakened'):
+            with self.subTest(verdict=verdict):
+                raw=json.dumps(dict(verdict=verdict,evidence=[dict(
+                    source_ref=source['source_ref'],quote=source['text'])],explanation='mock'))
+                self.assertEqual(runner.validate(raw,item,'stop')['verdict'],verdict)
+
+    def test_uncertain_verdicts_allow_empty_evidence(self):
+        for verdict in ('unsupported','needs_review'):
+            with self.subTest(verdict=verdict):
+                raw=json.dumps(dict(verdict=verdict,evidence=[],explanation='mock'))
+                self.assertEqual(runner.validate(raw,self.bundle['inputs'][0],'stop')['verdict'],verdict)
+
+    def test_missing_evidence_preserved_and_not_label_match(self):
+        for verdict in ('supported','contradicted','meaning_weakened'):
+            with self.subTest(verdict=verdict), tempfile.TemporaryDirectory() as d:
+                warm=dict(done=True,done_reason='stop',message=dict(content=json.dumps(dict(
+                    verdict='needs_review',evidence=[],explanation='mock'))))
+                content=json.dumps(dict(verdict=verdict,evidence=[],explanation='mock'))
+                session=FakeHTTPSession([warm,dict(done=True,done_reason='stop',message=dict(content=content))])
+                folder=Path(d)/'run'
+                t=RecordedTransport(base_url='http://127.0.0.1:11435',output_dir=folder,
+                    max_calls=7,max_seconds=120,timeout=30,session=session)
+                with self.assertRaises(runner.InvalidResult) as caught:
+                    runner.collect(self.bundle,t,folder,lambda:100)
+                self.assertEqual(caught.exception.category,'missing_evidence')
+                self.assertEqual(session.calls,2)
+                self.assertTrue(session.closed)
+                self.assertEqual((folder/'002-raw.bin').read_bytes(),session.responses[1].data)
+                self.assertEqual(runner.read(folder/'V02-A.json')['envelope']['message']['content'],content)
+                states=runner.read(folder/'completion.json')['states']
+                self.assertEqual(states['V02-A'],'missing_evidence')
+                self.assertTrue(all(v=='not_run' for k,v in states.items() if k not in ('W00-A','V02-A')))
+                key=runner.read(runner.HERE/'example_key.json')
+                key['labels']['V02']['expected']=verdict
+                key_path=Path(d)/'key.json'; runner.save(key_path,key)
+                report=summarize(folder,key_path)
+                self.assertEqual(report['rows'][0]['raw'],content)
+                self.assertEqual(report['rows'][0]['category'],'missing_evidence')
+                self.assertIsNone(report['rows'][0]['predicted'])
+                self.assertTrue(all(r['category']=='not_run' for r in report['rows'][1:]))
     def test_dry_no_transport(self):
         with patch.object(runner,'RecordedTransport') as transport:
             runner.main(['--inputs',str(runner.HERE/'example_inputs.json')]); transport.assert_not_called()

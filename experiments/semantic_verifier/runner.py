@@ -14,6 +14,7 @@ MODEL = 'exaone3.5:7.8b-instruct-q8_0'
 OPTIONS = dict(num_ctx=32768, temperature=0, seed=42, num_predict=1024)
 ORDER = [('V02','A'),('V02','B'),('V01','B'),('V01','A'),('V03','A'),('V03','B')]
 LABELS = {'supported','contradicted','unsupported','meaning_weakened','needs_review'}
+EVIDENCE_REQUIRED = {'supported','contradicted','meaning_weakened'}
 
 
 def pairs(items):
@@ -97,6 +98,8 @@ def validate(raw,item,reason):
         raise InvalidResult('format_error')
     if not isinstance(obj['verdict'],str) or obj['verdict'] not in LABELS or not isinstance(obj['explanation'],str) or not obj['explanation'].strip() or not isinstance(obj['evidence'],list):
         raise InvalidResult('format_error')
+    if obj['verdict'] in EVIDENCE_REQUIRED and not obj['evidence']:
+        raise InvalidResult('missing_evidence')
     sources={s['source_ref']:s['text'] for s in item['sources']}
     for q in obj['evidence']:
         if not isinstance(q,dict) or set(q)!={'source_ref','quote'} or any(not isinstance(v,str) for v in q.values()):
