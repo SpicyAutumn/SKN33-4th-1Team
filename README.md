@@ -190,6 +190,14 @@ flowchart TD
 
 원본 JSON·JSONL과 생성된 BM25 DB는 용량과 이용 조건 때문에 GitHub에 올리지 않습니다. 데이터 출처, 체크섬, 제외 기준과 재검증 방법은 [데이터 문서 카드](docs/document-card.md)와 [전처리 보고서](docs/02_data_preprocessing_report.md)에서 확인할 수 있습니다.
 
+### 공공누리 미디어 데이터
+
+공공누리 제1~4유형으로 확인된 대표·관련 사진·지도·차트 정보를
+`data/processed/aks_article_medias.jsonl`로 통합했습니다. 검색 기능에서는 검색된
+청크의 `document_id`와 같은 항목을 찾아 `images`를 사용합니다. JSONL은 팀
+Google Drive에서 받고, 생성 방법과 필드 설명은
+[공공누리 미디어 JSONL 안내](docs/aks_media_jsonl.md)를 참고합니다.
+
 ## 6. 검색 방식과 평가
 
 ### 세 가지 검색 방식
