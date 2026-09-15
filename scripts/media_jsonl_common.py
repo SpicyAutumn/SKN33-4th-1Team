@@ -96,7 +96,11 @@ def normalized_image(media: dict[str, Any], *, role: str) -> dict[str, Any]:
         "kogl_label": KOGL_LABELS.get(kogl_type, kogl_type),
         "description": str(media.get("description") or "").strip(),
         "copyright_display": str(media.get("copyrightDisplay") or "").strip(),
-        "attribution": f"{caption}, 『한국민족문화대백과사전』" if caption else "",
+        "attribution": (
+            f"{caption}, 『한국민족문화대백과사전』"
+            if caption
+            else "『한국민족문화대백과사전』"
+        ),
     }
 
 

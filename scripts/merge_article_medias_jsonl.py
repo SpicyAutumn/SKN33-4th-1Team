@@ -32,6 +32,12 @@ def add_image(record: dict[str, Any], image: Any, *, head: bool) -> None:
 
     if existing_index is not None:
         if head:
+            existing = images[existing_index]
+            for key, value in existing.items():
+                if key == "role":
+                    continue
+                if key not in normalized or is_blank(normalized[key]):
+                    normalized[key] = value
             images.pop(existing_index)
             images.insert(0, normalized)
         return
@@ -39,6 +45,10 @@ def add_image(record: dict[str, Any], image: Any, *, head: bool) -> None:
         images.insert(0, normalized)
     else:
         images.append(normalized)
+
+
+def is_blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
 
 
 def get_or_create(
