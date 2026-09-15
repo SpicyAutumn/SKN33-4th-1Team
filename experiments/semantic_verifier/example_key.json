@@ -1,0 +1,8 @@
+{
+  "kind":"synthetic",
+  "labels": {
+    "V01":{"expected":"supported","origin":"authored_example"},
+    "V02":{"expected":"contradicted","origin":"authored_example"},
+    "V03":{"expected":"supported","origin":"authored_example"}
+  }
+}

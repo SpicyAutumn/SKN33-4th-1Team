@@ -1,0 +1,6 @@
+# Keep runtime responses and manually collected environment records out of Git.
+*_runs/
+runs/
+results/
+environment*.json
+__pycache__/

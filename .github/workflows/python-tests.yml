@@ -27,3 +27,6 @@ jobs:
 
       - name: Run unit tests
         run: python -m pytest -q
+
+      - name: Run semantic verifier experiment tests (offline)
+        run: python -X utf8 -B -m unittest discover -s experiments/semantic_verifier -p "test_*.py"

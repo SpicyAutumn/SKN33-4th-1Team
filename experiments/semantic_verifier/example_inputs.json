@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "kind": "synthetic",
+  "inputs": [
+    {"input_id":"V01","question":"누가 노래했나요?","target_claim":"참가자가 노래했다.","response_context":null,"sources":[{"source_ref":"S1","text":"참가자가 노래했다."}]},
+    {"input_id":"V02","question":"누가 사용할 수 있나요?","target_claim":"관리자와 방문객이 사용할 수 있다.","response_context":null,"sources":[{"source_ref":"S1","text":"이 장비는 관리자만 사용할 수 있다."}]},
+    {"input_id":"V03","question":"언제 만들어졌나요?","target_claim":"오래전에 만들어진 것으로 추정된다.","response_context":null,"sources":[{"source_ref":"S1","text":"이 물건은 오래전에 만들어진 것으로 추정된다."}]}
+  ]
+}
