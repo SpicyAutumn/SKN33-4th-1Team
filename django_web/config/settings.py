@@ -29,7 +29,8 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-development-on
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
 
 # Application definition

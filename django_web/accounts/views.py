@@ -1,6 +1,10 @@
+import json
+
 from django.contrib.auth import login, logout
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .forms import LoginForm, SignUpForm
 
@@ -32,3 +36,59 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect("heritage:home")
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return None
+
+
+def _user_payload(user):
+    return {"id": user.pk, "username": user.username, "email": user.email}
+
+
+@require_GET
+@ensure_csrf_cookie
+def csrf(request):
+    return JsonResponse({"detail": "CSRF cookie set"})
+
+
+@require_POST
+def signup_api(request):
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse({"detail": "JSON 형식이 올바르지 않습니다."}, status=400)
+    form = SignUpForm(data)
+    if not form.is_valid():
+        return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
+    user = form.save()
+    login(request, user)
+    return JsonResponse({"user": _user_payload(user)}, status=201)
+
+
+@require_POST
+def login_api(request):
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse({"detail": "JSON 형식이 올바르지 않습니다."}, status=400)
+    form = LoginForm(request, data)
+    if not form.is_valid():
+        return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
+    user = form.get_user()
+    login(request, user)
+    return JsonResponse({"user": _user_payload(user)})
+
+
+@require_POST
+def logout_api(request):
+    logout(request)
+    return JsonResponse({"detail": "로그아웃했습니다."})
+
+
+@require_GET
+def me_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"detail": "로그인이 필요합니다."}, status=401)
+    return JsonResponse({"user": _user_payload(request.user)})
