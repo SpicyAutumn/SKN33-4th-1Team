@@ -1,0 +1,15 @@
+:root { font-family: "Noto Sans KR", "Malgun Gothic", sans-serif; color: #203b36; background: #f6f4ed; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; }
+.topbar { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 14px clamp(20px, 6vw, 96px); background: #193e34; color: #fff; }
+.brand { font-weight: 800; text-decoration: none; }
+nav { display: flex; align-items: center; gap: 18px; } nav a { color: #dce8e1; text-decoration: none; } nav form { margin: 0; }
+.member-link, .primary { display: inline-block; border: 0; border-radius: 8px; padding: 12px 17px; color: #173e33; background: #e6c878; font-weight: 800; text-decoration: none; }
+.link-button { border: 0; padding: 0; color: #dce8e1; background: transparent; font: inherit; cursor: pointer; }
+.hero { min-height: 510px; padding: 96px max(28px, calc((100vw - 1080px) / 2)); color: #fff; background: radial-gradient(circle at 80% 15%, #b17e3a88, transparent 20%), #193e34; }
+.eyebrow { margin: 0 0 12px; color: #e6ca84; font-size: 12px; font-weight: 800; letter-spacing: .12em; }.dark { color: #256853; }
+h1,h2 { font-family: Georgia, "Gowun Batang", serif; letter-spacing: -.04em; } h1 { font-size: clamp(38px, 5vw, 66px); line-height: 1.13; } h1 em { color: #e8cd89; font-style: normal; }.lead { max-width: 600px; color: #dce8e1; font-size: 18px; line-height: 1.7; margin-bottom: 30px; }
+.content-section { max-width: 1080px; margin: auto; padding: 72px 28px; }.benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }.benefits article,.profile-card,.auth-card { border: 1px solid #dce3d9; border-radius: 14px; background: #fff; }.benefits article { padding: 24px; }.benefits p,.hint { color: #61716b; line-height: 1.7; }
+.auth-page { min-height: calc(100vh - 72px); display: grid; place-items: center; padding: 56px 24px; background: #e9eee8; }.auth-card { width: min(500px, 100%); padding: 34px; }.auth-card h1 { font-size: 42px; }.auth-card label { display: grid; gap: 7px; margin: 15px 0; color: #256853; font-size: 13px; font-weight: 800; }.auth-card input { width: 100%; padding: 12px; border: 1px solid #b8cbc0; border-radius: 8px; font: inherit; }.wide { width: 100%; margin-top: 12px; }.error { display: block; color: #ae2727; font-weight: 400; }.hint a { color: #256853; font-weight: 800; }.profile-card { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; padding: 24px; }.profile-card dl { margin: 0; }.profile-card dt { color: #61716b; font-size: 13px; }.profile-card dd { margin: 6px 0 0; font-weight: 800; }
+@media (max-width: 650px) { .topbar { flex-wrap: wrap; } nav { gap: 11px; }.benefits,.profile-card { grid-template-columns: 1fr; }.hero { padding-block: 70px; } }

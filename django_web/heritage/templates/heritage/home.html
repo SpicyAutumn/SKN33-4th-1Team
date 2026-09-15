@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">KOREAN HERITAGE GUIDE</p>
+  <h1>우리 문화유산을<br><em>더 깊이 만나 보세요.</em></h1>
+  <p class="lead">질문에 맞는 문화유산 정보를 찾아, 이해하기 쉬운 설명과 출처를 안내합니다.</p>
+  {% if user.is_authenticated %}
+    <a class="primary" href="{% url 'heritage:mypage' %}">{{ user.username }} 님의 마이페이지</a>
+  {% else %}
+    <a class="primary" href="{% url 'accounts:signup' %}">회원가입하고 기록 저장하기</a>
+  {% endif %}
+</section>
+<section class="content-section">
+  <p class="eyebrow dark">MEMBER BENEFITS</p>
+  <h2>회원이 되면</h2>
+  <div class="benefits">
+    <article><b>최근 질문</b><p>나의 검색과 답변 기록을 모아봅니다.</p></article>
+    <article><b>저장한 문화유산</b><p>나중에 다시 보고 싶은 항목을 관리합니다.</p></article>
+    <article><b>오류 제보</b><p>내가 남긴 제보의 처리 상태를 확인합니다.</p></article>
+  </div>
+</section>
+{% endblock %}
