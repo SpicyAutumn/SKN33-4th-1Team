@@ -294,9 +294,18 @@ _CORRECTION_LANGUAGE = re.compile(
 )
 
 
+def _has_correction_language(message: str) -> bool:
+    """첨가 표현 '뿐(만) 아니라'는 교정 신호에서 제외한다. 원문은 보존한다."""
+    candidate = re.sub(r"뿐(?:\s*만)?\s*아니라", " ", message)
+    return bool(_CORRECTION_LANGUAGE.search(candidate))
+
+
 def _clean_correction_message(message: str) -> str:
     """뒤에서 전제를 고치면서 앞에서는 동의하는 모순된 시작을 제거한다."""
-    return re.sub(r"^\s*(?:네[,，]?\s*)?맞습니다[.!。]?\s*", "", message).strip()
+    return re.sub(
+        r"^\s*(?:(?:네|예)[,，.!。]?\s*)?맞습니다(?:만)?(?=\s|[.!。]|$)[.!。]?\s*",
+        "", message,
+    ).strip()
 
 
 def _first_sentence(message: str) -> str:
@@ -321,7 +330,7 @@ def _normalize_corrected_premise(model_output: dict[str, Any], question: str) ->
             # 교정 상세가 이미 있어도 본문의 잘못된 긍정 시작은 남을 수 있다.
             # 명시적 교정 표현이 있는 본문만 기존 규칙으로 정리한다.
             message = model_output.get("draft_message")
-            if isinstance(message, str) and _CORRECTION_LANGUAGE.search(message):
+            if isinstance(message, str) and _has_correction_language(message):
                 model_output["draft_message"] = _clean_correction_message(message)
             model_output["candidate_response_type"] = "corrected_premise"
             model_output["clarification"] = None
@@ -342,7 +351,7 @@ def _normalize_corrected_premise(model_output: dict[str, Any], question: str) ->
     used_ids = model_output.get("used_chunk_ids")
     corrects_assertion = (
         _ASSERTION_QUESTION.search(question)
-        and _CORRECTION_LANGUAGE.search(message)
+        and _has_correction_language(message)
         and isinstance(used_ids, list)
         and bool(used_ids)
     )
