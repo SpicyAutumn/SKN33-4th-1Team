@@ -82,10 +82,23 @@ def _select_clarification(response: dict, clarification: dict, option: dict) -> 
 
 
 def _render_correction(response: dict) -> None:
-    correction = response.get("premise_correction") or {}
+    correction = response.get("premise_correction")
+    summary = correction.get("corrected_premise") if isinstance(correction, dict) else None
+    message = response.get("message")
+    # 완전히 같은 문구만 생략한다. 일부 중복이나 의미상 유사성은 판단하지 않는다.
+    parts = []
+    for text in (summary, message):
+        if isinstance(text, str) and text.strip() and text not in parts:
+            parts.append(text)
     st.markdown("#### ⓘ 확인된 정보")
-    st.write(correction.get("corrected_premise", response["message"]))
-    _listen_button("correction", correction.get("corrected_premise", response["message"]))
+    if not parts:
+        st.warning("표시할 정정 답변이 없습니다.")
+        return
+    st.write(parts[0])
+    if len(parts) > 1:
+        st.markdown("#### 자세한 설명")
+        st.write(parts[1])
+    _listen_button("correction", "\n\n".join(parts))
 
 
 def _js_string(text: str) -> str:
