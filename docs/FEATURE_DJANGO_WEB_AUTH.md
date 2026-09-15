@@ -55,6 +55,17 @@ python manage.py runserver
 
 `migrate`는 Django의 회원 테이블을 공용 `django_project4` DB에 생성하거나 최신 상태로 맞춥니다.
 
+## 공용 로그인 확인 계정
+
+아래 계정은 팀원이 공용 DB 연결과 로그인을 확인하기 위한 **개발 전용 계정**입니다.
+개인 서비스나 실제 배포 환경에서는 사용하지 않습니다.
+
+```text
+아이디: 킹세종
+이메일: aaaa@gmail.com
+비밀번호: aaaa1234
+```
+
 ## 검증 결과
 
 - Django 회원가입·로그인 테스트 4건 통과
