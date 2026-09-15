@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import unittest
 
 from rag_service.ollama_generator import (
@@ -318,6 +319,66 @@ class ChunkIdRepairTest(unittest.TestCase):
 
 
 class ResponseTypeNormalizationTest(unittest.TestCase):
+    def test_existing_correction_cleans_agreement_only_with_explicit_correction(self):
+        for response_type in ("answered", "insufficient_evidence", "corrected_premise"):
+            with self.subTest(response_type=response_type):
+                correction = {
+                    "original_premise": "2001년에 개관",
+                    "corrected_premise": "2002년에 개관",
+                    "source_chunk_ids": [CONTEXT["chunk_id"]],
+                }
+                output = {
+                    "candidate_response_type": response_type,
+                    "draft_message": "네, 맞습니다. 2001년이 아니라 2002년에 개관했습니다.",
+                    "used_chunk_ids": [CONTEXT["chunk_id"]],
+                    "clarification": None,
+                    "premise_correction": deepcopy(correction),
+                    "related_topic_candidates": [],
+                }
+                _normalize_corrected_premise(output, "가람 기록관은 2001년에 개관한 것이 맞지?")
+                self.assertEqual(output["draft_message"], "2001년이 아니라 2002년에 개관했습니다.")
+                self.assertEqual(output["candidate_response_type"], "corrected_premise")
+                self.assertEqual(output["premise_correction"], correction)
+                self.assertEqual(output["used_chunk_ids"], [CONTEXT["chunk_id"]])
+                once = deepcopy(output)
+                _normalize_corrected_premise(output, "가람 기록관은 2001년에 개관한 것이 맞지?")
+                self.assertEqual(output, once)
+
+    def test_normal_agreement_and_non_correction_messages_are_preserved(self):
+        for has_detail in (False, True):
+            with self.subTest(has_detail=has_detail):
+                output = {
+                    "candidate_response_type": "corrected_premise" if has_detail else "answered",
+                    "draft_message": "네, 맞습니다. 2002년에 개관했습니다.",
+                    "used_chunk_ids": [CONTEXT["chunk_id"]],
+                    "clarification": None,
+                    "premise_correction": {
+                        "original_premise": "2001년에 개관",
+                        "corrected_premise": "2002년에 개관",
+                        "source_chunk_ids": [CONTEXT["chunk_id"]],
+                    } if has_detail else None,
+                    "related_topic_candidates": [],
+                }
+                before = deepcopy(output)
+                _normalize_corrected_premise(output, "가람 기록관은 2002년에 개관한 것이 맞지?")
+                self.assertEqual(output, before)
+
+    def test_non_answer_types_do_not_clean_message_even_with_correction_detail(self):
+        for response_type in ("safety_refusal", "out_of_scope", "needs_clarification"):
+            with self.subTest(response_type=response_type):
+                message = "네, 맞습니다. 2001년이 아니라 2002년입니다."
+                output = {
+                    "candidate_response_type": response_type,
+                    "draft_message": message,
+                    "used_chunk_ids": [],
+                    "clarification": None,
+                    "premise_correction": {"source_chunk_ids": [CONTEXT["chunk_id"]]},
+                }
+                _normalize_corrected_premise(output, "2001년이 맞지?")
+                self.assertEqual(output["draft_message"], message)
+                self.assertEqual(output["candidate_response_type"], response_type)
+                self.assertIsNone(output["premise_correction"])
+
     def test_answer_that_explicitly_corrects_assertion_becomes_corrected_premise(self):
         output = {
             "candidate_response_type": "answered",

@@ -318,6 +318,11 @@ def _normalize_corrected_premise(model_output: dict[str, Any], question: str) ->
         # 경우가 있다. 상세 필드가 유효한 근거를 가리키면 교정 의도가 더 강한
         # 신호이므로 유형을 맞춘다.
         if response_type in {"answered", "insufficient_evidence", "corrected_premise"}:
+            # 교정 상세가 이미 있어도 본문의 잘못된 긍정 시작은 남을 수 있다.
+            # 명시적 교정 표현이 있는 본문만 기존 규칙으로 정리한다.
+            message = model_output.get("draft_message")
+            if isinstance(message, str) and _CORRECTION_LANGUAGE.search(message):
+                model_output["draft_message"] = _clean_correction_message(message)
             model_output["candidate_response_type"] = "corrected_premise"
             model_output["clarification"] = None
             return
