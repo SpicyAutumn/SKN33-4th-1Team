@@ -376,6 +376,34 @@ class ResponseTypeNormalizationTest(unittest.TestCase):
                     _normalize_corrected_premise(output, "기록관은 전시를 제공하는 것이 맞지?")
                     self.assertEqual(output, before)
 
+    def test_additive_other_categories_preserve_agreement(self):
+        for phrase in ("뿐 아니라", "뿐만 아니라"):
+            for category in ("인물", "장르", "분류"):
+                for has_detail in (False, True):
+                    with self.subTest(phrase=phrase, category=category, detail=has_detail):
+                        # 상세가 있는 경우는 모순된 필드를 넣은 방어 사례다.
+                        subject, question, predicate = {
+                            "인물": ("세종", "세종은 여러 정책을 추진한 것이 맞지?", "들도 여러 정책을 추진했습니다"),
+                            "장르": ("소설", "전시는 소설도 소개하는 것이 맞지?", "도 전시에서 소개합니다"),
+                            "분류": ("이 분류", "이 분류도 검색 가능한 것이 맞지?", "도 검색할 수 있습니다"),
+                        }[category]
+                        message = f"네, 맞습니다. {subject}{phrase} 다른 {category}{predicate}."
+                        output = self._boundary_output(message, has_detail)
+                        before = deepcopy(output)
+                        _normalize_corrected_premise(output, question)
+                        self.assertEqual(output, before)
+
+    def test_additive_other_categories_keep_separate_correction(self):
+        for category in ("인물", "장르", "분류"):
+            for separator in (". ", ", "):
+                for has_detail in (False, True):
+                    with self.subTest(category=category, separator=separator, detail=has_detail):
+                        body = f"전시뿐만 아니라 다른 {category}도 소개합니다{separator}2001년이 아니라 2002년에 개관했습니다."
+                        output = self._boundary_output("네, 맞습니다. " + body, has_detail)
+                        _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                        self.assertEqual(output["candidate_response_type"], "corrected_premise")
+                        self.assertEqual(output["draft_message"], body)
+
     @staticmethod
     def _boundary_output(message, has_detail):
         return {

@@ -296,7 +296,11 @@ _CORRECTION_LANGUAGE = re.compile(
 
 def _has_correction_language(message: str) -> bool:
     """첨가 표현 '뿐(만) 아니라'는 교정 신호에서 제외한다. 원문은 보존한다."""
-    candidate = re.sub(r"뿐(?:\s*만)?\s*아니라", " ", message)
+    # 첨가 접속어 바로 뒤의 '다른 인물/장르/분류'도 첨가 대상이다.
+    # 문장 전체를 제외하지 않아 뒤의 별도 교정 신호는 그대로 검사한다.
+    candidate = re.sub(
+        r"뿐(?:\s*만)?\s*아니라(?:\s+다른 (?:장르|분류|인물))?", " ", message
+    )
     return bool(_CORRECTION_LANGUAGE.search(candidate))
 
 
