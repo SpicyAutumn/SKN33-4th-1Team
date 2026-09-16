@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from accounts.models import User
+from .models import SearchHistory
 from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 
@@ -73,6 +74,20 @@ def me(request):
     return JsonResponse({"user": {"id": request.user.id, "username": request.user.username, "email": request.user.email}})
 
 
+@require_GET
+def search_history(request):
+    if not request.user.is_authenticated:
+        return _error("로그인 후 최근 검색을 볼 수 있습니다.", 401)
+    items = SearchHistory.objects.filter(user=request.user)[:5]
+    return JsonResponse({"items": [{
+        "id": item.id,
+        "question": item.question,
+        "audience_level": item.audience_level,
+        "response_type": item.response_type,
+        "created_at": item.created_at.isoformat(),
+    } for item in items]})
+
+
 @csrf_exempt
 @require_POST
 def chat(request):
@@ -87,6 +102,14 @@ def chat(request):
     if audience_level not in {"easy", "general", "advanced"}:
         return _error("설명 수준이 올바르지 않습니다.")
     try:
-        return JsonResponse(rag_answer(question, audience_level=audience_level))
+        response = rag_answer(question, audience_level=audience_level)
+        if request.user.is_authenticated:
+            SearchHistory.objects.create(
+                user=request.user,
+                question=question,
+                audience_level=audience_level,
+                response_type=str(response.get("response_type", "answered")),
+            )
+        return JsonResponse(response)
     except RagUnavailableError:
         return _error("지금은 자료를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)

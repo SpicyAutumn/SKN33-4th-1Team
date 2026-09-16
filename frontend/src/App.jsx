@@ -11,7 +11,6 @@ const heritageStories = [
   { title: "수원 화성", subtitle: "정조가 세운 과학적 성곽", question: "수원 화성은 왜 지어졌나요?", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Wall_of_Hwaseong_Fortress_in_Suwon%2C_South_Korea.jpg?width=1280", imageAlt: "수원 화성" },
 ];
 const topics = ["조선 왕조", "불교 문화재", "유네스코 세계유산", "고려 청자", "한양 도성", "3·1 운동", "한글 창제", "왕릉과 능침"];
-const recentSearches = [["경복궁은 언제 지어졌나요?", "초등학생", "10분 전", "easy"], ["고려청자와 조선백자의 차이", "성인 일반", "어제", "advanced"], ["훈민정음 창제 배경", "중·고등학생", "2일 전", "general"]];
 
 const koreanDate = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -33,6 +32,15 @@ const selectDailyStories = (dateKey) => {
 const summaryFromAnswer = (message = "") => {
   const sentences = message.replace(/\s+/g, " ").trim().match(/[^.!?]+[.!?]?/g) || [];
   return sentences.slice(0, 2).join(" ").trim() || message;
+};
+
+const relativeTime = (value) => {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 60) return "방금 전";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}분 전`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}시간 전`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}일 전`;
+  return new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric" }).format(new Date(value));
 };
 
 const api = async (path, options = {}) => {
@@ -70,10 +78,15 @@ export default function App() {
   const [level, setLevel] = useState("general");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState([]);
   const [today, setToday] = useState(koreanDate);
   const showingAnswer = loading || result;
 
   useEffect(() => { api("auth/me").then(({ user: member }) => setUser(member)).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!user) { setRecentSearches([]); return; }
+    api("history").then(({ items }) => setRecentSearches(items)).catch(() => setRecentSearches([]));
+  }, [user]);
   useEffect(() => {
     const timer = window.setInterval(() => setToday((current) => {
       const next = koreanDate();
@@ -94,7 +107,11 @@ export default function App() {
     const askedQuestion = question.trim();
     if (!askedQuestion) return;
     setQuestion(askedQuestion); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
-    try { setResult(await api("chat", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: level }) })); }
+    try {
+      const answer = await api("chat", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: level }) });
+      setResult(answer);
+      if (user) api("history").then(({ items }) => setRecentSearches(items)).catch(() => {});
+    }
     catch (error) { setResult({ error: error.message }); }
     finally { setLoading(false); }
   };
@@ -108,7 +125,7 @@ export default function App() {
       <section className="hero" id="top"><div className="hero-inner"><p className="eyebrow">🏛️ AI 기반 문화유산 학습 서비스</p><h1>어떤 역사·문화 이야기가<br />궁금한가요?</h1><p className="hero-copy">문화유산과 역사에 대해 쉽고 믿을 수 있게 알아보세요.</p><form onSubmit={ask} className="question-box"><label className="question-row" htmlFor="question"><span aria-hidden="true">⌕</span><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="예: 경복궁은 왜 지어졌나요? 고려청자의 특징은?" aria-label="질문" /><button className="primary">질문하기</button></label><div className="level-row"><span>설명 수준:</span><div>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}</div></div></form></div></section>
       <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>{today.label} · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{selectDailyStories(today.key).map((story, index) => <button key={story.title} className={`story-card ${index === 0 ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><img className="story-image" src={story.image} alt={story.imageAlt} /><span className="story-copy">{index === 0 && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
       <section className="topics-section"><div className="section-shell"><h2>추천 주제</h2><div className="topic-list">{topics.map((topic) => <button key={topic} onClick={() => useQuestion(`${topic}에 대해 알려줘`)}>{topic}</button>)}</div><div className="stats"><span><b>12,480</b> 등록 문화유산</span><span><b>89,200+</b> 누적 질문 답변</span><span><b>98.3%</b> 정보 출처 보유율</span></div></div></section>
-      <section className="section-shell recent-section"><div className="section-title"><div><h2>최근 검색</h2><p>◷ 이 브라우저에 저장됨</p></div></div><div className="recent-list">{recentSearches.map(([text, label, time, itemLevel]) => <button key={text} onClick={() => useQuestion(text, itemLevel)}><span>{text}</span><small><em>{label}</em>{time}</small></button>)}</div></section>
+      {user && <section className="section-shell recent-section"><div className="section-title"><div><h2>사용자 최근 검색</h2><p>◷ {user.username} 계정에 저장됨</p></div></div>{recentSearches.length > 0 ? <div className="recent-list">{recentSearches.map((item) => <button key={item.id} onClick={() => useQuestion(item.question, item.audience_level)}><span>{item.question}</span><small><em>{levels.find(([value]) => value === item.audience_level)?.[1] || "중·고등학생"}</em>{relativeTime(item.created_at)}</small></button>)}</div> : <p className="empty-history">아직 검색 기록이 없습니다. 첫 질문을 남겨 보세요.</p>}</section>}
     </>}
     <footer><div className="footer-inner"><div><b>문 문화유산 AI 가이드</b><p>국가 문화유산 정보를 AI로 쉽게 알아보는 공공 서비스</p></div><nav><a href="#top">이용약관</a><a href="#top">개인정보 처리방침</a><a href="#top">오류 제보</a></nav></div></footer>
     {authMode && <div className="modal"><form onSubmit={submitAuth}><button type="button" className="close" onClick={() => setAuthMode(null)}>×</button><h2>{authMode === "signup" ? "회원가입" : "로그인"}</h2>{authMode === "signup" && <input placeholder="사용자명" value={username} onChange={(event) => setUsername(event.target.value)} required />}<input placeholder="이메일 또는 사용자명" type={authMode === "signup" ? "email" : "text"} value={identity} onChange={(event) => setIdentity(event.target.value)} required /><input placeholder="비밀번호 (8자 이상)" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />{authError && <p className="error">{authError}</p>}<button className="primary">{authMode === "signup" ? "가입하고 시작하기" : "로그인"}</button><button type="button" className="link" onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}>{authMode === "signup" ? "이미 계정이 있어요" : "계정 만들기"}</button></form></div>}
