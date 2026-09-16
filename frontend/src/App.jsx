@@ -2,9 +2,21 @@ import { useEffect, useState } from "react";
 
 const levels = [["easy", "초등학생"], ["general", "중·고등학생"], ["advanced", "성인 일반"]];
 const stories = [
-  { title: "경복궁 근정전", subtitle: "조선의 정치 중심지", icon: "🏯", question: "경복궁 근정전은 어떤 곳인가요?", featured: true },
-  { title: "첨성대", subtitle: "신라의 천문 관측소", icon: "🌌", question: "첨성대는 어떻게 천문을 관측했나요?" },
-  { title: "석굴암", subtitle: "통일신라의 불교 미술", icon: "🪨", question: "석굴암의 특징을 알려줘" },
+  {
+    title: "경복궁 근정전", subtitle: "조선의 정치 중심지", question: "경복궁 근정전은 어떤 곳인가요?", featured: true,
+    image: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Gyeongbokgung-GeunJeongJeon.jpg/1280px-Gyeongbokgung-GeunJeongJeon.jpg",
+    imageAlt: "경복궁 근정전",
+  },
+  {
+    title: "첨성대", subtitle: "신라의 천문 관측소", question: "첨성대는 어떻게 천문을 관측했나요?",
+    image: "https://upload.wikimedia.org/wikipedia/commons/8/8f/Cheomseongdae_%EC%B2%A8%EC%84%B1%EB%8C%80.jpg",
+    imageAlt: "경주 첨성대",
+  },
+  {
+    title: "석굴암", subtitle: "통일신라의 불교 미술", question: "석굴암의 특징을 알려줘",
+    image: "https://commons.wikimedia.org/wiki/Special:FilePath/Korea-Gyeongju-Seokguram%20grotto-Outside%20view-01.jpg?width=1280",
+    imageAlt: "경주 석굴암",
+  },
 ];
 const topics = ["조선 왕조", "불교 문화재", "유네스코 세계유산", "고려 청자", "한양 도성", "3·1 운동", "한글 창제", "왕릉과 능침"];
 const recentSearches = [["경복궁은 언제 지어졌나요?", "초등학생", "10분 전", "easy"], ["고려청자와 조선백자의 차이", "성인 일반", "어제", "advanced"], ["훈민정음 창제 배경", "중·고등학생", "2일 전", "general"]];
@@ -55,7 +67,7 @@ export default function App() {
       <form onSubmit={ask} className="question-box"><label className="question-row" htmlFor="question"><span aria-hidden="true">⌕</span><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="예: 경복궁은 왜 지어졌나요? 고려청자의 특징은?" aria-label="질문" /><button className="primary">질문하기</button></label><div className="level-row"><span>설명 수준:</span><div>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}</div></div></form>
     </div></section>
     {(loading || result) && <section className="answer section-shell">{loading && <p className="loading">자료를 찾고 답변을 준비하고 있어요.</p>}{result && (result.error ? <p className="error">{result.error}</p> : <>{result.demo && <div className="demo">시연 모드</div>}<h2>질문에 대한 설명</h2><p className="answer-message">{result.message}</p><h3>답변의 근거 확인</h3>{result.citations.map((citation) => <article key={citation.source_url}><b>{citation.title}</b><p>{citation.content}</p><a href={citation.source_url} target="_blank" rel="noreferrer">원문 보기 ↗</a></article>)}</>)}</section>}
-    <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>2026년 9월 14일 · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{stories.map((story) => <button key={story.title} className={`story-card ${story.featured ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><span className="story-art" aria-hidden="true">{story.icon}</span><span className="story-copy">{story.featured && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
+    <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>2026년 9월 14일 · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{stories.map((story) => <button key={story.title} className={`story-card ${story.featured ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><img className="story-image" src={story.image} alt={story.imageAlt} /><span className="story-copy">{story.featured && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
     <section className="topics-section"><div className="section-shell"><h2>추천 주제</h2><div className="topic-list">{topics.map((topic) => <button key={topic} onClick={() => useQuestion(`${topic}에 대해 알려줘`)}>{topic}</button>)}</div><div className="stats"><span><b>12,480</b> 등록 문화유산</span><span><b>89,200+</b> 누적 질문 답변</span><span><b>98.3%</b> 정보 출처 보유율</span></div></div></section>
     <section className="section-shell recent-section"><div className="section-title"><div><h2>최근 검색</h2><p>◷ 이 브라우저에 저장됨</p></div></div><div className="recent-list">{recentSearches.map(([text, label, time, itemLevel]) => <button key={text} onClick={() => useQuestion(text, itemLevel)}><span>{text}</span><small><em>{label}</em>{time}</small></button>)}</div></section>
     <footer><div className="footer-inner"><div><b>문 문화유산 AI 가이드</b><p>국가 문화유산 정보를 AI로 쉽게 알아보는 공공 서비스</p></div><nav><a href="#top">이용약관</a><a href="#top">개인정보 처리방침</a><a href="#top">오류 제보</a></nav></div></footer>
