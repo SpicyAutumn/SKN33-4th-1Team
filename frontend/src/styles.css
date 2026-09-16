@@ -11,3 +11,5 @@ footer { padding: 31px 24px; background: #123f35; color: #ebf4ed; } .footer-inne
 @media (max-width: 760px) { .answer-page { padding: 26px 18px 54px; } .asked-question { align-items: flex-start; flex-direction: column; padding: 21px; } .asked-question h1 { font-size: 22px; } .answer-levels { justify-content: flex-start; } .ai-answer-body { padding: 15px; } .core-summary { padding: 16px; } }
 
 .empty-history { margin: 0; padding: 22px; border: 1px dashed #cbd8ce; border-radius: 14px; background: #fbfdf9; color: #73847b; }
+
+.answer-levels button { padding: 7px 12px; border-radius: 999px; background: #f1f0ea; color: #758078; font-size: 13px; font-weight: 700; white-space: nowrap; } .answer-levels button:not(:disabled):hover { background: #dcece3; color: #1d715b; } .answer-levels button:disabled { cursor: default; }

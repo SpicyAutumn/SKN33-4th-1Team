@@ -50,12 +50,12 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-function AnswerView({ question, level, result, loading, onBack }) {
+function AnswerView({ question, level, result, loading, onBack, onChangeLevel }) {
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
   return <section className="answer-page"><div className="answer-shell">
     <button type="button" className="back-to-search" onClick={onBack}>← 검색으로 돌아가기</button>
-    <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <span key={value} className={value === level ? "selected" : ""}>{label}</span>)}</div></section>
+    <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={loading || value === level}>{label}</button>)}</div></section>
     {loading && <div className="answer-loading">자료를 찾고 답변을 준비하고 있어요.</div>}
     {result?.error && <div className="answer-error">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
@@ -102,26 +102,26 @@ export default function App() {
       setUser(data); setAuthMode(null); setIdentity(""); setUsername(""); setPassword("");
     } catch (error) { setAuthError(error.message); }
   };
-  const ask = async (event) => {
-    event.preventDefault();
-    const askedQuestion = question.trim();
+  const askQuestion = async (nextQuestion, nextLevel = level) => {
+    const askedQuestion = nextQuestion.trim();
     if (!askedQuestion) return;
-    setQuestion(askedQuestion); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
+    setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
     try {
-      const answer = await api("chat", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: level }) });
+      const answer = await api("chat", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: nextLevel }) });
       setResult(answer);
       if (user) api("history").then(({ items }) => setRecentSearches(items)).catch(() => {});
     }
     catch (error) { setResult({ error: error.message }); }
     finally { setLoading(false); }
   };
+  const ask = async (event) => { event.preventDefault(); await askQuestion(question); };
   const useQuestion = (nextQuestion, nextLevel = level) => { setQuestion(nextQuestion); setLevel(nextLevel); document.querySelector("#question")?.focus(); };
   const backToSearch = () => { setResult(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const logout = async () => { await api("auth/logout", { method: "POST" }); setUser(null); };
 
   return <main>
     <header className="site-header"><a className="brand" href="#top" onClick={backToSearch}><span className="brand-mark" aria-hidden="true">📚</span><span>문화유산 AI 가이드</span></a>{user ? <div className="user"><b>{user.username}</b><button className="outline" onClick={logout}>로그아웃</button></div> : <button className="outline login-button" onClick={() => setAuthMode("login")}>로그인 / 회원가입</button>}</header>
-    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} /> : <>
+    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} /> : <>
       <section className="hero" id="top"><div className="hero-inner"><p className="eyebrow">🏛️ AI 기반 문화유산 학습 서비스</p><h1>어떤 역사·문화 이야기가<br />궁금한가요?</h1><p className="hero-copy">문화유산과 역사에 대해 쉽고 믿을 수 있게 알아보세요.</p><form onSubmit={ask} className="question-box"><label className="question-row" htmlFor="question"><span aria-hidden="true">⌕</span><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="예: 경복궁은 왜 지어졌나요? 고려청자의 특징은?" aria-label="질문" /><button className="primary">질문하기</button></label><div className="level-row"><span>설명 수준:</span><div>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}</div></div></form></div></section>
       <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>{today.label} · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{selectDailyStories(today.key).map((story, index) => <button key={story.title} className={`story-card ${index === 0 ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><img className="story-image" src={story.image} alt={story.imageAlt} /><span className="story-copy">{index === 0 && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
       <section className="topics-section"><div className="section-shell"><h2>추천 주제</h2><div className="topic-list">{topics.map((topic) => <button key={topic} onClick={() => useQuestion(`${topic}에 대해 알려줘`)}>{topic}</button>)}</div><div className="stats"><span><b>12,480</b> 등록 문화유산</span><span><b>89,200+</b> 누적 질문 답변</span><span><b>98.3%</b> 정보 출처 보유율</span></div></div></section>
