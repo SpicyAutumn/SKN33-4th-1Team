@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from accounts.models import User
+from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 
 def _payload(request):
@@ -21,7 +22,7 @@ def _error(message, status=400):
 
 @require_GET
 def health(_request):
-    return JsonResponse({"status": "ok", "chat_mode": "demo"})
+    return JsonResponse({"status": "ok", "chat_mode": "rag"})
 
 
 @csrf_exempt
@@ -75,7 +76,7 @@ def me(request):
 @csrf_exempt
 @require_POST
 def chat(request):
-    """MVP response contract. Replace this demo body with RagService after keys are supplied."""
+    """Run the existing RAG service with the web request's selected explanation level."""
     payload = _payload(request)
     if payload is None:
         return _error("요청 형식이 올바르지 않습니다.")
@@ -85,16 +86,7 @@ def chat(request):
         return _error("질문을 입력해 주세요.")
     if audience_level not in {"easy", "general", "advanced"}:
         return _error("설명 수준이 올바르지 않습니다.")
-    return JsonResponse({
-        "response_type": "answered",
-        "audience_level": audience_level,
-        "message": "현재는 웹 연결을 확인하는 시연 모드입니다. RAG 키와 Ollama 연결이 준비되면 같은 화면에서 실제 검색 근거를 바탕으로 답변합니다.",
-        "citations": [{
-            "title": "한국민족문화대백과사전",
-            "source_url": "https://encykorea.aks.ac.kr/",
-            "content": "시연 모드에서는 실제 검색 근거를 아직 호출하지 않습니다."
-        }],
-        "premise_correction": None,
-        "clarification": None,
-        "demo": True,
-    })
+    try:
+        return JsonResponse(rag_answer(question, audience_level=audience_level))
+    except RagUnavailableError:
+        return _error("지금은 자료를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 503)
