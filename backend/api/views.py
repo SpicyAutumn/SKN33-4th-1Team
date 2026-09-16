@@ -1,12 +1,15 @@
 import json
 
-from django.contrib.auth import authenticate, login, logout
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from accounts.models import User
+from .models import Member
 from .rag_runtime import RagUnavailableError, answer as rag_answer
+
+
+MEMBER_SESSION_KEY = "heritage_member_id"
 
 
 def _payload(request):
@@ -36,11 +39,15 @@ def signup(request):
     password = str(payload.get("password", ""))
     if not username or not email or len(password) < 8:
         return _error("사용자명, 이메일, 8자 이상 비밀번호를 입력해 주세요.")
-    if User.objects.filter(username=username).exists() or User.objects.filter(email=email).exists():
+    member = Member(username=username, email=email)
+    member.set_password(password)
+    try:
+        member.save()
+    except IntegrityError:
         return _error("이미 사용 중인 사용자명 또는 이메일입니다.", 409)
-    user = User.objects.create_user(username=username, email=email, password=password)
-    login(request, user)
-    return JsonResponse({"id": user.id, "username": user.username, "email": user.email}, status=201)
+    request.session.cycle_key()
+    request.session[MEMBER_SESSION_KEY] = member.id
+    return JsonResponse(member.public_data(), status=201)
 
 
 @csrf_exempt
@@ -51,26 +58,28 @@ def login_view(request):
         return _error("요청 형식이 올바르지 않습니다.")
     identity = str(payload.get("identity", "")).strip()
     password = str(payload.get("password", ""))
-    user = User.objects.filter(email__iexact=identity).first() or User.objects.filter(username=identity).first()
-    authenticated = authenticate(request, username=user.username, password=password) if user else None
-    if authenticated is None:
+    member = Member.objects.filter(email__iexact=identity).first() or Member.objects.filter(username=identity).first()
+    if member is None or not member.check_password(password):
         return _error("이메일 또는 비밀번호를 확인해 주세요.", 401)
-    login(request, authenticated)
-    return JsonResponse({"id": authenticated.id, "username": authenticated.username, "email": authenticated.email})
+    request.session.cycle_key()
+    request.session[MEMBER_SESSION_KEY] = member.id
+    return JsonResponse(member.public_data())
 
 
 @csrf_exempt
 @require_POST
 def logout_view(request):
-    logout(request)
+    request.session.flush()
     return JsonResponse({"ok": True})
 
 
 @require_GET
 def me(request):
-    if not request.user.is_authenticated:
+    member_id = request.session.get(MEMBER_SESSION_KEY)
+    member = Member.objects.filter(id=member_id).first() if member_id else None
+    if member is None:
         return JsonResponse({"user": None})
-    return JsonResponse({"user": {"id": request.user.id, "username": request.user.username, "email": request.user.email}})
+    return JsonResponse({"user": member.public_data()})
 
 
 @csrf_exempt
