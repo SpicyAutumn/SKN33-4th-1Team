@@ -462,6 +462,27 @@ def _node(entry: Entry, reason: str) -> dict[str, Any]:
     }
 
 
+def _representative_value(entries: Iterable[Entry], column: str) -> str:
+    """여러 관련 유물에서 가장 많이 나온 시대·유형의 원본 값을 고른다."""
+    counts: dict[str, int] = {}
+    first_value: dict[str, str] = {}
+    order: list[str] = []
+    for entry in entries:
+        value = _clean(getattr(entry, column))
+        key = top_level(value)
+        if not key or key in UNKNOWN_VALUES:
+            continue
+        if key not in counts:
+            counts[key] = 0
+            first_value[key] = value
+            order.append(key)
+        counts[key] += 1
+    if not counts:
+        return ""
+    chosen = max(order, key=lambda key: counts[key])
+    return first_value[chosen]
+
+
 def build_map(
     root_key: str,
     *,
@@ -499,6 +520,9 @@ def build_map(
 
     anchor = neighbors.anchor(root.document_id) if neighbors is not None else None
     summary = neighbors.summary(root.document_id) if neighbors is not None else ""
+    root_is_heritage = book.is_heritage(root)
+    effective_period = root.period
+    effective_item_type = root.item_type
 
     # 1. 구성 요소 — 만든 목록만으로 확실하게 판별된다.
     parts = [e for e in book.titles_starting_with(root.title) if book.is_heritage(e)]
@@ -509,6 +533,9 @@ def build_map(
             same_field = [entry for entry in parts if entry.field == root.field]
             if same_field:
                 parts = same_field
+        if not root_is_heritage:
+            effective_period = _representative_value(parts, "period") or root.period
+            effective_item_type = _representative_value(parts, "item_type") or root.item_type
         ordered = sorted(parts, key=lambda e: e.title)
         if anchor:
             # 가나다순으로 두면 `경복궁 강녕전`이 앞서고 정작 정전인 `근정전`이
@@ -520,7 +547,6 @@ def build_map(
                 metadata_filter={"document_id": {"$in": sorted(by_id)}},
             )
             ordered = [by_id[d] for d, _ in ranked if d in by_id] or ordered
-        root_is_heritage = book.is_heritage(root)
         add(
             "딸린 유산" if root_is_heritage else "관련 유물·유산",
             (
@@ -537,27 +563,32 @@ def build_map(
 
     if anchor:
         # 2. 같은 시대 — 대분류가 같은 원본 문자열을 모두 건다.
-        era = top_level(root.period)
+        era = top_level(effective_period)
         era_values = (
-            book.values_sharing_top_level("period", root.period)
+            book.values_sharing_top_level("period", effective_period)
             if era and era not in UNKNOWN_VALUES
             else []
         )
         if era_values:
+            era_filters: list[dict[str, Any]] = [
+                {"era": {"$in": era_values}},
+                {"primary_type": {"$in": book.heritage_type_values()}},
+            ]
+            if not root_is_heritage and root.field:
+                era_filters.append({"field": {"$eq": root.field}})
             found = neighbors.search(
                 anchor,
                 limit=limit,
-                metadata_filter={
-                    "$and": [
-                        {"era": {"$in": era_values}},
-                        {"primary_type": {"$in": book.heritage_type_values()}},
-                    ]
-                },
+                metadata_filter={"$and": era_filters},
                 exclude_documents=used,
             )
             add(
                 f"시대 : {era}",
-                f"백과사전이 `{era}`{ro_suffix(era)} 매긴 유산 가운데 원문이 가까운 순입니다.",
+                (
+                    f"관련 유물에서 가장 많이 확인된 `{era}` 시대의 가까운 유산입니다."
+                    if not root_is_heritage
+                    else f"백과사전이 `{era}`{ro_suffix(era)} 매긴 유산 가운데 원문이 가까운 순입니다."
+                ),
                 [
                     _node(book.by_document[d], f"{era}")
                     for d, _ in found
@@ -567,21 +598,28 @@ def build_map(
 
         # 3. 같은 유형 — 궁궐이면 궁궐, 탑이면 탑.
         type_values = (
-            book.values_sharing_top_level("item_type", root.item_type)
-            if top_level(root.item_type) in HERITAGE_TYPES
+            book.values_sharing_top_level("item_type", effective_item_type)
+            if top_level(effective_item_type) in HERITAGE_TYPES
             else []
         )
         if type_values:
-            kind = top_level(root.item_type)
+            kind = top_level(effective_item_type)
+            type_filter: dict[str, Any] = {"primary_type": {"$in": type_values}}
+            if not root_is_heritage and root.field:
+                type_filter = {"$and": [type_filter, {"field": {"$eq": root.field}}]}
             found = neighbors.search(
                 anchor,
                 limit=limit,
-                metadata_filter={"primary_type": {"$in": type_values}},
+                metadata_filter=type_filter,
                 exclude_documents=used,
             )
             add(
                 f"종류 : {kind}",
-                f"백과사전이 `{kind}`{ro_suffix(kind)} 분류한 유산입니다.",
+                (
+                    f"관련 유물에서 가장 많이 확인된 `{kind}` 유형의 가까운 유산입니다."
+                    if not root_is_heritage
+                    else f"백과사전이 `{kind}`{ro_suffix(kind)} 분류한 유산입니다."
+                ),
                 [
                     _node(book.by_document[d], f"{kind}")
                     for d, _ in found
@@ -602,7 +640,7 @@ def build_map(
         # 가까운 순으로 세운다. 가나다순으로 두면 `서울 고려대학교 본관`처럼
         # 결이 다른 항목이 앞에 온다.
         def affinity(entry: Entry) -> tuple[int, int, str]:
-            same_type = top_level(entry.item_type) == top_level(root.item_type)
+            same_type = top_level(entry.item_type) == top_level(effective_item_type)
             same_field = top_level(entry.field) == top_level(root.field)
             return (0 if same_type else 1, 0 if same_field else 1, entry.title)
 
@@ -627,7 +665,7 @@ def build_map(
     # 앞의 축들이 같은 유형에서 가까운 것을 이미 가져갔으므로, 그냥 두면
     # 여기도 궁궐 옆의 궁궐이 나온다. 유적을 빼야 인물·사건·개념이 올라온다.
     if anchor:
-        other_kinds = book.heritage_type_values(exclude_top_level=top_level(root.item_type))
+        other_kinds = book.heritage_type_values(exclude_top_level=top_level(effective_item_type))
         other_filter: dict[str, Any] | None = (
             {"primary_type": {"$in": other_kinds}} if other_kinds else None
         )
@@ -641,7 +679,7 @@ def build_map(
             metadata_filter=other_filter,
             exclude_documents=used,
         )
-        kind = top_level(root.item_type)
+        kind = top_level(effective_item_type)
         add(
             "다른 갈래",
             (
@@ -666,11 +704,24 @@ def build_map(
                 neighbors.summary(node["document_id"]), NODE_SUMMARY_LIMIT
             )
 
+    root_fields = root.summary_fields()
+    if not root_is_heritage:
+        root_fields = [
+            ("대표 시대", top_level(effective_period)),
+            ("분야", root.field),
+            ("대표 유형", top_level(effective_item_type)),
+        ]
+        root_fields = [
+            (label, value)
+            for label, value in root_fields
+            if value and value not in UNKNOWN_VALUES and value != "개념"
+        ]
+
     return {
         "root": {
             "document_id": root.document_id,
             "title": root.title,
-            "fields": root.summary_fields(),
+            "fields": root_fields,
             "summary": _shorten(summary, SUMMARY_LIMIT),
             "source_url": root.source_url,
         },
