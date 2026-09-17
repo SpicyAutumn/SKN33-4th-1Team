@@ -37,23 +37,32 @@ def response():
         used_chunk_ids=["CTX-1"], clarification=None, premise_correction=None, related_topic_candidates=[])
 
 
-def test_answer_builds_real_service_citations():
-    service, calls = build(response())
+@pytest.mark.parametrize("with_summary", [False, True])
+def test_answer_builds_real_service_citations(with_summary):
+    data = response()
+    if with_summary:
+        data["summary"] = "ㄱ당은 1928년에 조직됐습니다."
+    service, calls = build(data)
     result = service.answer("ㄱ당은 무엇이야?")
     assert result["response_type"] == "answered"
+    assert result["summary"] == data.get("summary", data["draft_message"])
     assert result["citations"][0]["source_url"] == CONTEXT["source_url"]
     assert result["citations"][0]["content"] == CONTEXT["content"]
     assert len(calls) == 1
 
 
-def test_correction_survives_service_contract():
+@pytest.mark.parametrize("with_summary", [False, True])
+def test_correction_survives_service_contract(with_summary):
     data = response()
+    if with_summary:
+        data["summary"] = "1927년이 아니라 1928년입니다."
     data.update(candidate_response_type="corrected_premise", premise_correction={
         "original_premise": "1927년에 조직됐다", "corrected_premise": "1928년입니다.", "source_chunk_ids": ["CTX-1"]})
     service, _ = build(data)
     result = service.answer("ㄱ당은 1927년에 조직된 게 맞아?")
     assert result["response_type"] == "corrected_premise"
     assert result["message"] == data["draft_message"]
+    assert result["summary"] == data.get("summary", data["draft_message"])
     assert result["premise_correction"]["corrected_premise"] == "1928년입니다."
     assert result["citations"]
 

@@ -27,11 +27,14 @@ def output(kind="answered", ids=None):
 
 
 @pytest.mark.parametrize("level", ["easy", "general", "advanced"])
+@pytest.mark.parametrize("with_summary", [False, True])
 @pytest.mark.parametrize("case", ["answer", "unknown_source", "insufficient", "correction", "clarification"])
-def test_parity(level, case):
+def test_parity(level, case, with_summary):
     request = generation_request()
     request["audience_level"] = level
     data = output()
+    if with_summary:
+        data["summary"] = "모델이 반환한 핵심 요약입니다."
     if case == "unknown_source":
         data["used_chunk_ids"] = ["missing"]
     elif case == "insufficient":
@@ -62,11 +65,14 @@ def test_parity(level, case):
     expected["generation_metadata"].pop("latency_ms")
     actual["generation_metadata"].pop("latency_ms")
     assert actual == expected
+    assert actual["summary"] == data.get("summary", data["draft_message"])
     assert request == original_request
     assert [m.content for m in capture["messages"]] == [m["content"] for m in capture["payload"]["messages"]]
     opts = capture["options"]
     assert opts["num_predict"] == capture["payload"]["options"]["num_predict"]
     assert opts["format"] == capture["payload"]["format"]
+    assert "summary" in opts["format"]["required"]
+    assert opts["format"]["properties"]["summary"]["type"] == "string"
     assert opts["reasoning"] is False
     assert opts["client_kwargs"] == {"timeout": 120.0}
 
