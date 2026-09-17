@@ -177,28 +177,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
 }
 @media (prefers-reduced-motion: reduce) { .tour-card, .loading-dot { animation: none; } }
 
-/* Readable network layout: connectors stay outside labels and cards never overlap. */
-.network-map { padding: 30px 24px 34px; background-color: #f8faf5; background-image: radial-gradient(circle, #dbe6dd 1px, transparent 1px); background-size: 22px 22px; }
-.network-topic { width: max-content; max-width: min(420px, 100%); display: grid; gap: 2px; margin: auto; padding: 13px 28px; border: 3px solid #ead394; border-radius: 20px; background: #427562; color: #fff; text-align: center; box-shadow: 0 7px 18px #244d3f1a; }
-.network-topic small { color: #dfece4; font-size: 11px; letter-spacing: .8px; }
-.network-topic b { overflow-wrap: anywhere; font-size: 22px; }
-.network-stem { width: 2px; height: 30px; margin: 0 auto; background: #a9bdb3; }
-.network-branch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
-.network-branch-group { min-width: 0; overflow: hidden; border: 1px solid #d9e2db; border-top: 5px solid var(--branch-color); border-radius: 14px; background: #fff; box-shadow: 0 5px 15px #274d3f0a; }
-.network-branch-group > header { padding: 16px 17px 13px; border-bottom: 1px solid #e7ece7; background: #fbfcf8; }
-.network-branch-group > header > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.network-branch-group > header b { color: #244c40; font-size: 16px; }
-.network-branch-group > header span { flex: 0 0 auto; padding: 2px 7px; border-radius: 999px; background: #edf3ed; color: #647c71; font-size: 11px; }
-.network-branch-group > header p { margin: 5px 0 0; color: #738179; font-size: 11px; line-height: 1.55; }
-.network-node-list { display: grid; gap: 8px; padding: 13px; }
-.network-node-list button { width: 100%; min-width: 0; display: grid; gap: 2px; padding: 11px 13px; border: 1px solid color-mix(in srgb, var(--branch-color) 48%, #d9e2db); border-left: 4px solid var(--branch-color); border-radius: 10px; background: #fff; color: #27483d; text-align: left; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
-.network-node-list button:hover, .network-node-list button:focus-visible { z-index: 1; transform: translateY(-1px); background: #fffdf5; box-shadow: 0 5px 13px #294c4014; }
-.network-node-list span { overflow-wrap: anywhere; font-size: 14px; font-weight: 800; line-height: 1.45; }
-.network-node-list small { color: #668075; font-size: 11px; }
-.network-node-list em { display: -webkit-box; overflow: hidden; margin-top: 3px; color: #7b867f; font-size: 11px; font-style: normal; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-@media (max-width: 760px) {
-  .network-map { padding: 24px 14px; }
-  .network-topic { width: 100%; padding: 12px 16px; }
-  .network-topic b { font-size: 19px; }
-  .network-branch-grid { grid-template-columns: 1fr; gap: 14px; }
-}
+/* Clockwise radial network. All edges render below opaque nodes so labels stay clear. */
+.network-radial-scroll { overflow: auto hidden; background-color: #f8faf5; background-image: radial-gradient(circle, #dbe6dd 1px, transparent 1px); background-size: 22px 22px; scrollbar-color: #9eb5a8 transparent; }
+.network-radial { display: block; width: 100%; min-width: 980px; height: auto; margin: auto; }
+.network-radial-lines line { fill: none; stroke-width: 2.5; opacity: .36; }
+.network-radial-branch rect { fill: #193f35; stroke-width: 3; }
+.network-radial-branch text { fill: #fff; font-size: 16px; font-weight: 900; text-anchor: middle; pointer-events: none; }
+.network-radial-branch .network-branch-count { fill: #dcebe3; font-size: 10px; }
+.network-radial-node { cursor: pointer; outline: none; }
+.network-radial-node rect { fill: #fff; stroke-width: 2.5; transition: fill .16s ease, stroke-width .16s ease, filter .16s ease; }
+.network-radial-node:hover rect, .network-radial-node:focus rect { fill: #fff9df; stroke-width: 4; filter: drop-shadow(0 5px 7px #234a3c22); }
+.network-radial-node-copy { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: #24483d; text-align: center; pointer-events: none; }
+.network-radial-node-copy b { max-width: 100%; display: -webkit-box; overflow: hidden; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.network-radial-node-copy span { max-width: 100%; overflow: hidden; color: #75867e; font-size: 10px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.network-radial-root rect { fill: #427562; stroke: #ead394; stroke-width: 4; filter: drop-shadow(0 7px 10px #244d3f20); }
+.network-radial-root-copy { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; color: #fff; text-align: center; pointer-events: none; }
+.network-radial-root-copy small { color: #dfece4; font-size: 11px; letter-spacing: .8px; }
+.network-radial-root-copy b { max-width: 100%; display: -webkit-box; overflow: hidden; font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+@media (max-width: 760px) { .network-radial { min-width: 900px; } }

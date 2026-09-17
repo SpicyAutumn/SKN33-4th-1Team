@@ -69,6 +69,25 @@ const api = async (path, options = {}) => {
 };
 
 const networkColors = ["#d3a84b", "#3b9a7a", "#4d91ad", "#c9774f", "#8b70b5"];
+const networkCanvas = { width: 1240, height: 940, centerX: 620, centerY: 470 };
+const networkSlotSets = {
+  1: [{ x: 620, y: 255, zone: "top" }],
+  2: [{ x: 390, y: 470, zone: "left" }, { x: 850, y: 470, zone: "right" }],
+  3: [{ x: 620, y: 255, zone: "top" }, { x: 835, y: 650, zone: "lower-right" }, { x: 405, y: 650, zone: "lower-left" }],
+  4: [{ x: 620, y: 255, zone: "top" }, { x: 850, y: 470, zone: "right" }, { x: 620, y: 685, zone: "bottom" }, { x: 390, y: 470, zone: "left" }],
+  5: [{ x: 620, y: 255, zone: "top" }, { x: 835, y: 330, zone: "upper-right" }, { x: 835, y: 650, zone: "lower-right" }, { x: 405, y: 650, zone: "lower-left" }, { x: 405, y: 330, zone: "upper-left" }],
+};
+
+const networkLeafPosition = (zone, index, count) => {
+  const centered = index - (count - 1) / 2;
+  if (zone === "top") return { x: networkCanvas.centerX + centered * 225, y: 98 };
+  if (zone === "bottom") return { x: networkCanvas.centerX + centered * 225, y: 842 };
+  if (zone === "left") return { x: 130, y: networkCanvas.centerY + centered * 108 };
+  if (zone === "right") return { x: 1110, y: networkCanvas.centerY + centered * 108 };
+  const upper = zone.startsWith("upper");
+  const right = zone.endsWith("right");
+  return { x: right ? 1110 : 130, y: (upper ? 155 : 515) + index * 82 };
+};
 
 function HeritageNetwork({ question, citations, onAsk }) {
   const [open, setOpen] = useState(false);
@@ -109,12 +128,27 @@ function HeritageNetwork({ question, citations, onAsk }) {
   if (!open) return <section className="network-entry"><div><b>연관 문화유산 탐색</b><p>질문의 문화유산 주제에서 가까운 유물과 유산을 살펴보세요.</p></div><button type="button" onClick={() => load({ subject: true }, false)}>네트워크 열기 →</button></section>;
 
   const branches = data?.branches || [];
+  const slots = networkSlotSets[Math.min(Math.max(branches.length, 1), 5)];
+  const graphBranches = branches.slice(0, slots.length).map((branch, branchIndex) => ({
+    ...branch,
+    color: networkColors[branchIndex % networkColors.length],
+    slot: slots[branchIndex],
+    positionedNodes: (branch.nodes || []).map((node, nodeIndex, nodes) => ({
+      ...node,
+      point: networkLeafPosition(slots[branchIndex].zone, nodeIndex, nodes.length),
+    })),
+  }));
   return <section className="heritage-network">
     <header className="network-header"><div><span>문화유산 네트워크</span><h3>{data?.root?.title || "질문 주제를 찾고 있어요"}</h3></div><div className="network-actions">{trail.length > 0 && <button type="button" onClick={goBack}>← 이전</button>}<button type="button" onClick={() => setOpen(false)}>접기</button></div></header>
     {loading && <div className="network-status">연결된 문화유산을 찾고 있어요.</div>}
     {error && <div className="network-status network-error">{error}<button type="button" onClick={() => load(data?.root?.document_id ? { documentId: data.root.document_id } : { subject: true }, false)}>다시 시도</button></div>}
     {data && !loading && !error && <>
-      <div className="network-map" role="group" aria-label={`${data.root.title} 연관 문화유산 네트워크`}><div className="network-topic"><small>탐색 주제</small><b>{data.root.title}</b></div><div className="network-stem" aria-hidden="true" /><div className="network-branch-grid">{branches.map((branch, branchIndex) => <section className="network-branch-group" style={{ "--branch-color": networkColors[branchIndex % networkColors.length] }} key={branch.title}><header><div><b>{branch.title}</b><span>{(branch.nodes || []).length}개</span></div><p>{branch.note}</p></header><div className="network-node-list">{(branch.nodes || []).map((node) => <button type="button" key={node.document_id} onClick={() => load({ documentId: node.document_id })}><span>{node.title}</span><small>{node.reason}</small>{node.summary && <em>{node.summary}</em>}</button>)}</div></section>)}</div></div>
+      <div className="network-radial-scroll"><svg className="network-radial" viewBox={`0 0 ${networkCanvas.width} ${networkCanvas.height}`} role="group" aria-label={`${data.root.title} 연관 문화유산 네트워크`}>
+        <g className="network-radial-lines" aria-hidden="true">{graphBranches.map((branch) => <g key={branch.title}><line x1={networkCanvas.centerX} y1={networkCanvas.centerY} x2={branch.slot.x} y2={branch.slot.y} style={{ stroke: branch.color }} />{branch.positionedNodes.map((node) => <line key={node.document_id} x1={branch.slot.x} y1={branch.slot.y} x2={node.point.x} y2={node.point.y} style={{ stroke: branch.color }} />)}</g>)}</g>
+        <g className="network-radial-branches">{graphBranches.map((branch) => <g key={branch.title} className="network-radial-branch"><title>{branch.note}</title><rect x={branch.slot.x - 88} y={branch.slot.y - 27} width="176" height="54" rx="27" style={{ stroke: branch.color }} /><text x={branch.slot.x} y={branch.slot.y + 5}>{branch.title}</text><text className="network-branch-count" x={branch.slot.x + 67} y={branch.slot.y - 11}>{branch.positionedNodes.length}</text></g>)}</g>
+        <g className="network-radial-nodes">{graphBranches.flatMap((branch) => branch.positionedNodes.map((node) => <g key={`${branch.title}-${node.document_id}`} className="network-radial-node" role="button" tabIndex="0" onClick={() => load({ documentId: node.document_id })} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") load({ documentId: node.document_id }); }}><title>{`${node.title}\n${node.summary || node.reason}`}</title><rect x={node.point.x - 105} y={node.point.y - 31} width="210" height="62" rx="15" style={{ stroke: branch.color }} /><foreignObject x={node.point.x - 97} y={node.point.y - 26} width="194" height="52"><div xmlns="http://www.w3.org/1999/xhtml" className="network-radial-node-copy"><b>{node.title}</b><span>{node.reason}</span></div></foreignObject></g>))}</g>
+        <g className="network-radial-root"><rect x={networkCanvas.centerX - 142} y={networkCanvas.centerY - 49} width="284" height="98" rx="25" /><foreignObject x={networkCanvas.centerX - 132} y={networkCanvas.centerY - 39} width="264" height="78"><div xmlns="http://www.w3.org/1999/xhtml" className="network-radial-root-copy"><small>탐색 주제</small><b>{data.root.title}</b></div></foreignObject></g>
+      </svg></div>
       <div className="network-root-card"><div><b>현재 탐색 주제</b><p>{data.root.summary || "아래 유물과 유산을 선택해 탐색을 이어가 보세요."}</p><div>{(data.root.fields || []).map(([label, value]) => <span key={label}><b>{label}</b> {value}</span>)}</div></div><div className="network-root-links"><button type="button" onClick={() => onAsk(`${data.root.title}에 대해 알려줘`)}>이 주제 질문하기</button>{data.root.source_url && <a href={data.root.source_url} target="_blank" rel="noreferrer">공식 원문 ↗</a>}</div></div>
     </>}
   </section>;
