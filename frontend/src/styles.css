@@ -13,3 +13,5 @@ footer { padding: 31px 24px; background: #123f35; color: #ebf4ed; } .footer-inne
 .empty-history { margin: 0; padding: 22px; border: 1px dashed #cbd8ce; border-radius: 14px; background: #fbfdf9; color: #73847b; }
 
 .answer-levels button { padding: 7px 12px; border-radius: 999px; background: #f1f0ea; color: #758078; font-size: 13px; font-weight: 700; white-space: nowrap; } .answer-levels button:not(:disabled):hover { background: #dcece3; color: #1d715b; } .answer-levels button:disabled { cursor: default; }
+
+.report-button { margin-top: 18px; padding: 10px 14px; border: 1px solid #d9b9ad; border-radius: 999px; background: #fffaf8; color: #935443; font-size: 13px; font-weight: 700; } .modal select, .modal textarea { width: 100%; margin-bottom: 12px; padding: 12px; border: 1px solid #d9e2da; border-radius: 10px; color: #27483d; } .modal textarea { min-height: 120px; resize: vertical; }

@@ -78,4 +78,7 @@ TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+SESSION_COOKIE_SECURE = os.getenv("DJANGO_COOKIE_SECURE", "false").lower() == "true"
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+CSRF_COOKIE_SAMESITE = "Lax"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
