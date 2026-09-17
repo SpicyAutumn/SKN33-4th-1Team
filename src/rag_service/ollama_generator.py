@@ -13,9 +13,10 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "response-type-v1-ollama"
+PROMPT_VERSION = "response-type-v2-summary-ollama"
 MODEL_OUTPUT_FIELDS = {
     "candidate_response_type",
+    "summary",
     "draft_message",
     "used_chunk_ids",
     "clarification",
@@ -39,6 +40,7 @@ OLLAMA_OUTPUT_SCHEMA: dict[str, Any] = {
                 "out_of_scope",
             ],
         },
+        "summary": {"type": "string", "minLength": 1, "maxLength": 240},
         "draft_message": {"type": "string", "minLength": 1},
         "used_chunk_ids": STRING_ARRAY_SCHEMA,
         "clarification": {
@@ -147,6 +149,7 @@ SYSTEM_PROMPT = """당신은 검색된 역사·문화 문서를 근거로 답변
 
 [출력 필드]
 - candidate_response_type
+- summary
 - draft_message
 - used_chunk_ids
 - clarification
@@ -154,6 +157,10 @@ SYSTEM_PROMPT = """당신은 검색된 역사·문화 문서를 근거로 답변
 - related_topic_candidates
 
 [출력 규칙]
+- summary는 화면의 '핵심 요약'에 바로 표시할 한국어 1~2문장이다. answered와
+  corrected_premise에서는 draft_message의 결론과 가장 중요한 근거만 짧게 요약하고,
+  draft_message나 검색 문맥에 없는 사실은 쓰지 않는다. 다른 응답 유형에서는
+  summary에 draft_message와 같은 안내 문구를 넣는다.
 - answered이면 used_chunk_ids가 한 개 이상이고 clarification과 premise_correction은 null이다.
 - insufficient_evidence, safety_refusal, out_of_scope이면 used_chunk_ids는 빈 배열이다.
 - needs_clarification이면 used_chunk_ids는 빈 배열이고 clarification.question 한 건과 최대 3개 선택지를 작성한다.
@@ -316,6 +323,19 @@ def _clean_correction_message(message: str) -> str:
 def _first_sentence(message: str) -> str:
     sentences = re.split(r"(?<=[.!?。！？])\s+", message.strip(), maxsplit=1)
     return sentences[0].strip() if sentences else message.strip()
+
+
+def _fallback_summary(message: str) -> str:
+    """Keep an answer available when an older model omits only ``summary``.
+
+    The current prompt and JSON schema ask the model for this field.  Some
+    local model builds can still return the prior contract during a cold start
+    or after an upgrade.  Treat that narrow case as a compatibility fallback,
+    rather than turning an otherwise grounded answer into a 502 response.
+    """
+    normalized = re.sub(r"\s+", " ", str(message or "")).strip()
+    sentences = re.findall(r"[^.!?。！？]+[.!?。！？]?", normalized)
+    return " ".join(sentence.strip() for sentence in sentences[:2] if sentence.strip()) or normalized
 
 
 def _normalize_corrected_premise(model_output: dict[str, Any], question: str) -> None:
@@ -576,7 +596,14 @@ class OllamaGenerator:
                 lines = lines[:-1]
             raw = "\n".join(lines).strip()
         parsed = json.loads(raw)
-        if not isinstance(parsed, dict) or set(parsed) != MODEL_OUTPUT_FIELDS:
+        if not isinstance(parsed, dict):
+            raise ValueError("Ollama model output fields do not match the generation contract")
+        # The field is generated in the current prompt.  Accept only the
+        # immediately previous contract as a compatibility path for a running
+        # Ollama model that has not yet begun emitting summary.
+        if set(parsed) == MODEL_OUTPUT_FIELDS - {"summary"}:
+            parsed["summary"] = _fallback_summary(parsed.get("draft_message", ""))
+        if set(parsed) != MODEL_OUTPUT_FIELDS:
             raise ValueError("Ollama model output fields do not match the generation contract")
         # 관련 주제 기능은 현재 RagServiceConfig에서 꺼져 있다. Qwen이 문자열 후보를
         # 만들어 계약 검증을 깨뜨리지 않도록 MVP에서는 실행 코드가 빈 배열로 고정한다.
