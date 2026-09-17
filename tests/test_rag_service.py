@@ -111,6 +111,7 @@ class RagServiceTest(unittest.TestCase):
                 "request_id",
                 "interaction_id",
                 "response_type",
+                "summary",
                 "message",
                 "audience_level",
                 "citations",
@@ -122,6 +123,7 @@ class RagServiceTest(unittest.TestCase):
         )
         self.assertEqual(response["schema_version"], "0.3.0-draft")
         self.assertEqual(response["response_type"], "answered")
+        self.assertEqual(response["summary"], "검색 근거에 따른 답변입니다.")
         self.assertEqual(response["citations"][0]["title"], "ㄱ당")
         self.assertEqual(response["citations"][0]["source_url"], CONTEXT["source_url"])
         self.assertEqual(response["citations"][0]["content"], CONTEXT["content"])

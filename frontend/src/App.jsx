@@ -29,11 +29,6 @@ const selectDailyStories = (dateKey) => {
   return selected.slice(0, 3);
 };
 
-const summaryFromAnswer = (message = "") => {
-  const sentences = message.replace(/\s+/g, " ").trim().match(/[^.!?]+[.!?]?/g) || [];
-  return sentences.slice(0, 2).join(" ").trim() || message;
-};
-
 const relativeTime = (value) => {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
   if (seconds < 60) return "방금 전";
@@ -63,7 +58,7 @@ function AnswerView({ question, level, result, loading, onBack, onChangeLevel, o
     {result?.error && <div className="answer-error">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
-      <div className="ai-answer-body"><section className="core-summary"><b>★ 핵심 요약</b><p>{summaryFromAnswer(result.message)}</p></section><p className="full-answer">{result.message}</p>
+      <div className="ai-answer-body"><section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section><p className="full-answer">{result.message}</p>
         {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
         {citations.length > 0 && <details className="evidence-panel"><summary><span>◌ 근거 확인</span><span className="evidence-chevron">⌄</span></summary><div className="evidence-content">{citations.map((citation) => <article key={citation.chunk_id || citation.source_url}><b>{citation.title}</b><p>{citation.content}</p><a href={citation.source_url} target="_blank" rel="noreferrer">원문 보기 ↗</a></article>)}</div></details>}
         {result.search_record_id && <button type="button" className="report-button" onClick={onReport}>이 답변 오류 제보</button>}
