@@ -3,11 +3,11 @@ from django.db import models
 
 
 class User(AbstractUser):
-    """Existing django_project4.accounts_user table mapping.
+    """Legacy AUTH_USER_MODEL declaration kept for Django migration compatibility.
 
-    The team database already contains this Django-style table.  It is marked
-    unmanaged so the MVP never tries to recreate or alter it automatically.
-    Future schema changes must be added through reviewed migrations.
+    The v1 web API uses ``api.ServiceUser`` and removes the old
+    ``accounts_user`` table in migration 0005. No current endpoint reads or
+    writes this unmanaged model.
     """
 
     email = models.EmailField(unique=True)
