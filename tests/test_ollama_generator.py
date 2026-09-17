@@ -419,6 +419,40 @@ class ResponseTypeNormalizationTest(unittest.TestCase):
             "related_topic_candidates": [],
         }
 
+    def test_modified_additive_categories_preserve_agreement(self):
+        for joiner in ("뿐 아니라, ", "뿐만 아니라, ", "뿐만 아니라 또 ", "뿐만 아니라 조선의 "):
+            for category in ("인물", "장르", "분류"):
+                for has_detail in (False, True):
+                    with self.subTest(joiner=joiner, category=category, detail=has_detail):
+                        # 상세가 있는 입력은 모순된 상세를 넣은 방어 사례다.
+                        message = f"네, 맞습니다. 이 전시는 대표 사례{joiner}다른 {category}도 소개합니다."
+                        output = self._boundary_output(message, has_detail)
+                        before = deepcopy(output)
+                        _normalize_corrected_premise(output, "이 전시는 여러 사례를 소개하는 것이 맞지?")
+                        self.assertEqual(output, before)
+
+    def test_modified_addition_keeps_separate_correction(self):
+        for modifier in (", ", " 또 ", " 조선의 "):
+            for category in ("인물", "장르", "분류"):
+                for separator in (". ", ", "):
+                    for has_detail in (False, True):
+                        with self.subTest(modifier=modifier, category=category, separator=separator, detail=has_detail):
+                            body = f"전시는 대표 사례뿐만 아니라{modifier}다른 {category}도 소개합니다{separator}2001년이 아니라 2002년에 개관했습니다."
+                            output = self._boundary_output("네, 맞습니다. " + body, has_detail)
+                            _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                            self.assertEqual(output['candidate_response_type'], 'corrected_premise')
+                            self.assertEqual(output['draft_message'], body)
+
+    def test_other_category_requires_explicit_comparison(self):
+        for category in ("인물", "장르", "분류"):
+            for phrase, corrects in ((f"다른 {category}도 소개합니다.", False),
+                                     (f"질문의 대상과는 다른 {category}입니다.", True),
+                                     (f"질문의 대상과 다른 {category}입니다.", True)):
+                with self.subTest(phrase=phrase):
+                    output = self._boundary_output("네, 맞습니다. " + phrase, False)
+                    _normalize_corrected_premise(output, "이 설명이 맞지?")
+                    self.assertEqual(output['candidate_response_type'], 'corrected_premise' if corrects else 'answered')
+
     def test_agreement_variants_cleaned_in_both_correction_paths(self):
         for prefix in ("네, 맞습니다. ", "네. 맞습니다. ", "예, 맞습니다. ", "네, 맞습니다만 "):
             for has_detail in (False, True):
