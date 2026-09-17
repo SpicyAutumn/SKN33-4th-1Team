@@ -59,6 +59,7 @@ class OllamaGeneratorTest(unittest.TestCase):
                     "content": json.dumps(
                         {
                             "candidate_response_type": "answered",
+                            "summary": "경복궁은 1395년에 완성되었습니다.",
                             "draft_message": "경복궁은 1395년에 완성되었습니다.",
                             "used_chunk_ids": ["CTX-1"],
                             "clarification": None,
@@ -85,6 +86,7 @@ class OllamaGeneratorTest(unittest.TestCase):
             captured["payload"]["format"]["properties"]["candidate_response_type"]["enum"][0],
             "answered",
         )
+        self.assertIn("summary", captured["payload"]["format"]["properties"])
         self.assertEqual(captured["payload"]["options"]["temperature"], 0.0)
         self.assertEqual(captured["payload"]["options"]["num_predict"], 640)
         self.assertIn(CONTEXT["content"], captured["payload"]["messages"][1]["content"])
@@ -93,6 +95,7 @@ class OllamaGeneratorTest(unittest.TestCase):
         self.assertIn("5~8개 문장", captured["payload"]["messages"][1]["content"])
         self.assertEqual(result["request_id"], "REQ-1")
         self.assertEqual(result["audience_level"], "general")
+        self.assertEqual(result["summary"], "경복궁은 1395년에 완성되었습니다.")
         self.assertEqual(result["used_chunk_ids"], [CONTEXT["chunk_id"]])
         self.assertEqual(result["generation_metadata"]["model_id"], "qwen3:8b")
         self.assertEqual(result["generation_metadata"]["token_usage"]["total_tokens"], 150)
@@ -104,6 +107,7 @@ class OllamaGeneratorTest(unittest.TestCase):
                     "content": json.dumps(
                         {
                             "candidate_response_type": "corrected_premise",
+                            "summary": "경복궁은 1395년에 완성되었습니다.",
                             "draft_message": "1394년에 완성된 것이 아니라 1395년에 완성되었습니다.",
                             "used_chunk_ids": [],
                             "clarification": None,
@@ -151,6 +155,7 @@ class OllamaGeneratorTest(unittest.TestCase):
                     "content": json.dumps(
                         {
                             "candidate_response_type": "answered",
+                            "summary": "근거 기반 답변입니다.",
                             "draft_message": "근거 기반 답변",
                             "used_chunk_ids": [CONTEXT["chunk_id"]],
                             "clarification": None,
@@ -190,6 +195,28 @@ class OllamaGeneratorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "generation contract"):
             generator.invoke(generation_request())
 
+    def test_uses_compatibility_summary_when_only_that_field_is_omitted(self) -> None:
+        response = {
+            "message": {
+                "content": json.dumps(
+                    {
+                        "candidate_response_type": "answered",
+                        "draft_message": "경복궁은 1395년에 완성되었습니다. 조선 왕실의 중심 궁궐입니다.",
+                        "used_chunk_ids": ["CTX-1"],
+                        "clarification": None,
+                        "premise_correction": None,
+                        "related_topic_candidates": [],
+                    },
+                    ensure_ascii=False,
+                )
+            }
+        }
+        output = OllamaGenerator._model_output(response)
+        self.assertEqual(
+            output["summary"],
+            "경복궁은 1395년에 완성되었습니다. 조선 왕실의 중심 궁궐입니다.",
+        )
+
     def test_discards_related_topics_while_mvp_feature_is_disabled(self) -> None:
         def transport(url: str, payload: dict, timeout: float) -> dict:
             return {
@@ -197,6 +224,7 @@ class OllamaGeneratorTest(unittest.TestCase):
                     "content": json.dumps(
                         {
                             "candidate_response_type": "answered",
+                            "summary": "근거 기반 답변입니다.",
                             "draft_message": "근거 기반 답변",
                             "used_chunk_ids": [CONTEXT["chunk_id"]],
                             "clarification": None,
