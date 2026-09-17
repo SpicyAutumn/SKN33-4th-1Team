@@ -62,6 +62,7 @@ class FakeGenerator:
             "request_id": request["request_id"],
             "interaction_id": request["interaction_id"],
             "candidate_response_type": self.response_type,
+            "summary": self.draft_message,
             "draft_message": self.draft_message,
             "audience_level": request["audience_level"],
             "used_chunk_ids": used,

@@ -358,6 +358,7 @@ class RagService:
             "request_id",
             "interaction_id",
             "candidate_response_type",
+            "summary",
             "draft_message",
             "audience_level",
             "used_chunk_ids",
@@ -379,9 +380,9 @@ class RagService:
             raise RagServiceError("generation_error", "generation result audience_level does not match the request")
         if not isinstance(result["draft_message"], str) or not result["draft_message"].strip():
             raise RagServiceError("generation_error", "draft_message must not be empty")
-        summary = result.get("summary")
-        if summary is not None and (not isinstance(summary, str) or not summary.strip()):
-            raise RagServiceError("generation_error", "summary must be a non-empty string when provided")
+        summary = result["summary"]
+        if not isinstance(summary, str) or not summary.strip():
+            raise RagServiceError("generation_error", "summary must be a non-empty string")
         if not isinstance(result["generation_metadata"], dict):
             raise RagServiceError("generation_error", "generation_metadata must be an object")
         if contains_secret_value(json.dumps(result, ensure_ascii=False)):
