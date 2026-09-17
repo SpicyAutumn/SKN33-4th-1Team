@@ -194,8 +194,9 @@ flowchart TD
 
 공공누리 제1~4유형으로 확인된 대표·관련 사진·지도·차트 정보를
 `data/processed/aks_article_medias.jsonl`로 통합했습니다. 검색 기능에서는 검색된
-청크의 `document_id`와 같은 항목을 찾아 `images`를 사용합니다. JSONL은 팀
-Google Drive에서 받고, 생성 방법과 필드 설명은
+청크의 `document_id`와 같은 항목을 찾아 `images`를 사용합니다. Django API가
+문서별 미디어를 검색 응답에 포함하고 React 답변 화면이 공공누리 유형과 출처를
+함께 표시합니다. JSONL은 팀 Google Drive에서 받고, 생성 방법과 필드 설명은
 [공공누리 미디어 JSONL 안내](docs/aks_media_jsonl.md)를 참고합니다.
 
 ## 6. 검색 방식과 평가

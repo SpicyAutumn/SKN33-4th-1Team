@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
+from .media_catalog import media_catalog_status, media_for_citations
 from .models import AuthSession, ErrorReport, SearchCitation, SearchRecord, ServiceUser
 from .rag_runtime import RagUnavailableError, answer as rag_answer
 
@@ -92,7 +93,7 @@ def _citation_data(citation):
     }
 
 
-def _record_data(record, detail=False):
+def _record_data(record, detail=False, include_media=False):
     data = {
         "id": str(record.id),
         "question": record.question,
@@ -103,6 +104,7 @@ def _record_data(record, detail=False):
         "created_at": record.created_at.isoformat(),
     }
     if detail:
+        citations = [_citation_data(item) for item in record.citations.all()]
         data.update({
             "schema_version": record.schema_version,
             "request_id": record.rag_request_id,
@@ -111,14 +113,22 @@ def _record_data(record, detail=False):
             "clarification": record.clarification,
             "premise_correction": record.premise_correction,
             "warnings": record.warnings,
-            "citations": [_citation_data(item) for item in record.citations.all()],
+            "citations": citations,
         })
+        if include_media:
+            data["media"] = media_for_citations(citations)
     return data
 
 
 @require_GET
 def health(_request):
-    return JsonResponse({"status": "ok", "chat_mode": "rag", "api_version": "v1"})
+    media_status = media_catalog_status()
+    return JsonResponse({
+        "status": "ok",
+        "chat_mode": "rag",
+        "api_version": "v1",
+        "media_catalog": "available" if media_status["available"] else "missing",
+    })
 
 
 @ensure_csrf_cookie
@@ -242,7 +252,7 @@ def my_search_detail(request, record_id):
     record = SearchRecord.objects.filter(id=record_id, owner=session.user).prefetch_related("citations").first()
     if record is None:
         return _error("RESOURCE_NOT_FOUND", "검색 기록을 찾을 수 없습니다.", 404)
-    return JsonResponse(_record_data(record, detail=True))
+    return JsonResponse(_record_data(record, detail=True, include_media=True))
 
 
 @require_http_methods(["GET", "POST"])

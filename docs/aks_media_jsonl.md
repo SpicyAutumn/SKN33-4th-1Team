@@ -11,7 +11,9 @@ JSONL은 팀 Google Drive로 전달하며 Git에는 생성 코드와 안내를 �
 - 사진 아래에 `kogl_label`(공공누리 유형), `attribution`(출처),
   `copyright_display`(저작권 표시)를 표시하고 해당 유형의 이용 조건을 준수합니다.
 - 같은 문서의 청크가 여러 개 검색되어도 그 문서의 사진은 한 번만 표시합니다.
-- 연결된 미디어가 없으면 텍스트만 표시합니다. 검색 화면 연결 코드는 별도 구현이 필요합니다.
+- Django API가 검색 응답의 `citations[].document_id`로 이 파일을 조회해 `media`를
+  반환하고, React 답변 화면이 사진·지도·도표와 공공누리 유형·출처를 표시합니다.
+- 연결된 미디어가 없으면 `media`는 빈 배열이며 화면에는 텍스트만 표시합니다.
 
 재생성이 필요한 경우 3차 원본인 `aks_full_content.jsonl`과
 `api_list_metadata` 폴더를 `data/raw`에 넣고 `scripts` 폴더의 실행 파일인
