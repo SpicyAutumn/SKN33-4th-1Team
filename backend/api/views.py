@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import secrets
 from datetime import timedelta
 
@@ -13,6 +14,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .models import AuthSession, ErrorReport, SearchCitation, SearchRecord, ServiceUser
+from .network_runtime import HeritageNetworkUnavailableError, build_network
 from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 SESSION_COOKIE = "heritage_session"
@@ -219,6 +221,20 @@ def searches(request):
                     content=str(item.get("content") or ""),
                 )
     return JsonResponse({**response, "search_record_id": str(record.id) if record else None, "created_at": record.created_at.isoformat() if record else None})
+
+
+@require_GET
+def heritage_network(request):
+    document_id = str(request.GET.get("document_id", "")).strip()
+    if not re.fullmatch(r"aks:[A-Za-z0-9_-]{1,64}", document_id):
+        return _error("VALIDATION_ERROR", "문화유산 문서 ID를 확인해 주세요.", 422)
+    try:
+        payload = build_network(document_id)
+    except HeritageNetworkUnavailableError:
+        return _error("NETWORK_UPSTREAM_ERROR", "연관 문화유산을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
+    if payload is None:
+        return _error("RESOURCE_NOT_FOUND", "연결 정보를 찾지 못했습니다.", 404)
+    return JsonResponse(payload)
 
 
 @require_GET
