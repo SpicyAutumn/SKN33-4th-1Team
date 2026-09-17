@@ -39,12 +39,26 @@ const relativeTime = (value) => {
 };
 
 const csrfToken = () => document.cookie.split("; ").find((item) => item.startsWith("csrftoken="))?.split("=")[1];
+const ensureCsrfToken = async () => {
+  if (csrfToken()) return csrfToken();
+  const response = await fetch("/api/v1/auth/csrf", { credentials: "include" });
+  if (!response.ok) throw new Error("보안 토큰을 준비하지 못했습니다. 페이지를 새로고침해 주세요.");
+  const token = csrfToken();
+  if (!token) throw new Error("보안 토큰이 설정되지 않았습니다. 페이지를 새로고침해 주세요.");
+  return token;
+};
 const api = async (path, options = {}) => {
+  const method = options.method || "GET";
   const headers = { "Content-Type": "application/json", ...options.headers };
-  if (!["GET", "HEAD", "OPTIONS"].includes(options.method || "GET") && csrfToken()) headers["X-CSRFToken"] = csrfToken();
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) headers["X-CSRFToken"] = await ensureCsrfToken();
   const response = await fetch(`/api/v1/${path}`, { credentials: "include", headers, ...options });
-  const body = response.status === 204 ? {} : await response.json();
-  if (!response.ok) throw new Error(body.error?.message || "요청을 처리하지 못했습니다.");
+  const rawBody = response.status === 204 ? "" : await response.text();
+  let body = {};
+  if (rawBody) {
+    try { body = JSON.parse(rawBody); }
+    catch { throw new Error(`서버 응답 형식 오류(HTTP ${response.status})입니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.`); }
+  }
+  if (!response.ok) throw new Error(body.error?.message || `요청을 처리하지 못했습니다. (HTTP ${response.status})`);
   return body;
 };
 
