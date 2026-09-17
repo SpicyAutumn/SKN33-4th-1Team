@@ -1,0 +1,6 @@
+# AWS 배포에서는 표준 HTTP 포트(80)를 사용한다.
+# 로컬 개발용 docker-compose.yml의 8081:80 연결은 그대로 유지한다.
+services:
+  frontend:
+    ports: !override
+      - "80:80"
