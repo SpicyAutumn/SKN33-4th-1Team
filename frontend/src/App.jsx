@@ -53,7 +53,7 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-function AnswerView({ question, level, result, loading, onBack, onChangeLevel, onReport }) {
+function AnswerView({ question, level, result, loading, onBack, onChangeLevel, onReport, onAsk }) {
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
   return <section className="answer-page"><div className="answer-shell">
@@ -64,6 +64,7 @@ function AnswerView({ question, level, result, loading, onBack, onChangeLevel, o
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
       <div className="ai-answer-body"><section className="core-summary"><b>★ 핵심 요약</b><p>{summaryFromAnswer(result.message)}</p></section><p className="full-answer">{result.message}</p>
+        {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
         {citations.length > 0 && <details className="evidence-panel"><summary><span>◌ 근거 확인</span><span className="evidence-chevron">⌄</span></summary><div className="evidence-content">{citations.map((citation) => <article key={citation.chunk_id || citation.source_url}><b>{citation.title}</b><p>{citation.content}</p><a href={citation.source_url} target="_blank" rel="noreferrer">원문 보기 ↗</a></article>)}</div></details>}
         {result.search_record_id && <button type="button" className="report-button" onClick={onReport}>이 답변 오류 제보</button>}
       </div>
@@ -123,7 +124,7 @@ export default function App() {
     finally { setLoading(false); }
   };
   const ask = async (event) => { event.preventDefault(); await askQuestion(question); };
-  const useQuestion = (nextQuestion, nextLevel = level) => { setQuestion(nextQuestion); setLevel(nextLevel); document.querySelector("#question")?.focus(); };
+  const useQuestion = (nextQuestion, nextLevel = level) => { void askQuestion(nextQuestion, nextLevel); };
   const backToSearch = () => { setResult(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const logout = async () => { await api("auth/logout", { method: "POST" }); setUser(null); };
   const submitReport = async (event) => {
@@ -134,13 +135,13 @@ export default function App() {
 
   return <main>
     <header className="site-header"><a className="brand" href="#top" onClick={backToSearch}><span className="brand-mark" aria-hidden="true">📚</span><span>문화유산 AI 가이드</span></a>{user ? <div className="user"><b>{user.name}</b><button className="outline" onClick={logout}>로그아웃</button></div> : <button className="outline login-button" onClick={() => setAuthMode("login")}>로그인 / 회원가입</button>}</header>
-    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onReport={() => { setReportError(""); setReportOpen(true); }} /> : <>
+    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onReport={() => { setReportError(""); setReportOpen(true); }} onAsk={(nextQuestion) => askQuestion(nextQuestion, level)} /> : <>
       <section className="hero" id="top"><div className="hero-inner"><p className="eyebrow">🏛️ AI 기반 문화유산 학습 서비스</p><h1>어떤 역사·문화 이야기가<br />궁금한가요?</h1><p className="hero-copy">문화유산과 역사에 대해 쉽고 믿을 수 있게 알아보세요.</p><form onSubmit={ask} className="question-box"><label className="question-row" htmlFor="question"><span aria-hidden="true">⌕</span><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="예: 경복궁은 왜 지어졌나요? 고려청자의 특징은?" aria-label="질문" /><button className="primary">질문하기</button></label><div className="level-row"><span>설명 수준:</span><div>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}</div></div></form></div></section>
       <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>{today.label} · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{selectDailyStories(today.key).map((story, index) => <button key={story.title} className={`story-card ${index === 0 ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><img className="story-image" src={story.image} alt={story.imageAlt} /><span className="story-copy">{index === 0 && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
       <section className="topics-section"><div className="section-shell"><h2>추천 주제</h2><div className="topic-list">{topics.map((topic) => <button key={topic} onClick={() => useQuestion(`${topic}에 대해 알려줘`)}>{topic}</button>)}</div><div className="stats"><span><b>12,480</b> 등록 문화유산</span><span><b>89,200+</b> 누적 질문 답변</span><span><b>98.3%</b> 정보 출처 보유율</span></div></div></section>
       {user && <section className="section-shell recent-section"><div className="section-title"><div><h2>사용자 최근 검색</h2><p>◷ {user.name} 계정에 저장됨</p></div></div>{recentSearches.length > 0 ? <div className="recent-list">{recentSearches.map((item) => <button key={item.id} onClick={() => useQuestion(item.question, item.audience_level)}><span>{item.question}</span><small><em>{levels.find(([value]) => value === item.audience_level)?.[1] || "중·고등학생"}</em>{relativeTime(item.created_at)}</small></button>)}</div> : <p className="empty-history">아직 검색 기록이 없습니다. 첫 질문을 남겨 보세요.</p>}</section>}
     </>}
-    <footer><div className="footer-inner"><div><b>문 문화유산 AI 가이드</b><p>국가 문화유산 정보를 AI로 쉽게 알아보는 공공 서비스</p></div><nav><a href="#top">이용약관</a><a href="#top">개인정보 처리방침</a><a href="#top">오류 제보</a></nav></div></footer>
+    <footer><div className="footer-inner"><div><b>문화유산 AI 가이드</b><p>국가 문화유산 정보를 AI로 쉽게 알아보는 공공 서비스</p></div><nav><a href="#top">이용약관</a><a href="#top">개인정보 처리방침</a><a href="#top">오류 제보</a></nav></div></footer>
     {authMode && <div className="modal"><form onSubmit={submitAuth}><button type="button" className="close" onClick={() => setAuthMode(null)}>×</button><h2>{authMode === "signup" ? "회원가입" : "로그인"}</h2>{authMode === "signup" && <input placeholder="이름" value={username} onChange={(event) => setUsername(event.target.value)} required />}<input placeholder="이메일" type="email" value={identity} onChange={(event) => setIdentity(event.target.value)} required /><input placeholder="비밀번호 (8자 이상)" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />{authError && <p className="error">{authError}</p>}<button className="primary">{authMode === "signup" ? "가입하고 시작하기" : "로그인"}</button><button type="button" className="link" onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}>{authMode === "signup" ? "이미 계정이 있어요" : "계정 만들기"}</button></form></div>}
     {reportOpen && <div className="modal"><form onSubmit={submitReport}><button type="button" className="close" onClick={() => setReportOpen(false)}>×</button><h2>답변 오류 제보</h2><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="incorrect_fact">사실이 틀림</option><option value="citation_mismatch">출처가 맞지 않음</option><option value="incomplete_answer">설명이 부족함</option><option value="inappropriate_content">부적절한 내용</option><option value="other">기타</option></select><textarea placeholder="10자 이상으로 내용을 작성해 주세요." value={reportContent} onChange={(event) => setReportContent(event.target.value)} minLength="10" maxLength="2000" required />{reportError && <p className="error">{reportError}</p>}<button className="primary">제보 보내기</button></form></div>}
   </main>;
