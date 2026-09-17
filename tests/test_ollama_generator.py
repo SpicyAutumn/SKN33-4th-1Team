@@ -195,6 +195,28 @@ class OllamaGeneratorTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "generation contract"):
             generator.invoke(generation_request())
 
+    def test_uses_compatibility_summary_when_only_that_field_is_omitted(self) -> None:
+        response = {
+            "message": {
+                "content": json.dumps(
+                    {
+                        "candidate_response_type": "answered",
+                        "draft_message": "경복궁은 1395년에 완성되었습니다. 조선 왕실의 중심 궁궐입니다.",
+                        "used_chunk_ids": ["CTX-1"],
+                        "clarification": None,
+                        "premise_correction": None,
+                        "related_topic_candidates": [],
+                    },
+                    ensure_ascii=False,
+                )
+            }
+        }
+        output = OllamaGenerator._model_output(response)
+        self.assertEqual(
+            output["summary"],
+            "경복궁은 1395년에 완성되었습니다. 조선 왕실의 중심 궁궐입니다.",
+        )
+
     def test_discards_related_topics_while_mvp_feature_is_disabled(self) -> None:
         def transport(url: str, payload: dict, timeout: float) -> dict:
             return {

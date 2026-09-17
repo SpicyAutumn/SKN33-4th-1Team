@@ -311,6 +311,19 @@ def _first_sentence(message: str) -> str:
     return sentences[0].strip() if sentences else message.strip()
 
 
+def _fallback_summary(message: str) -> str:
+    """Keep an answer available when an older model omits only ``summary``.
+
+    The current prompt and JSON schema ask the model for this field.  Some
+    local model builds can still return the prior contract during a cold start
+    or after an upgrade.  Treat that narrow case as a compatibility fallback,
+    rather than turning an otherwise grounded answer into a 502 response.
+    """
+    normalized = re.sub(r"\s+", " ", str(message or "")).strip()
+    sentences = re.findall(r"[^.!?。！？]+[.!?。！？]?", normalized)
+    return " ".join(sentence.strip() for sentence in sentences[:2] if sentence.strip()) or normalized
+
+
 def _normalize_corrected_premise(model_output: dict[str, Any], question: str) -> None:
     """내용은 전제를 바로잡았는데 유형만 answered인 출력을 계약에 맞춘다.
 
@@ -564,7 +577,14 @@ class OllamaGenerator:
                 lines = lines[:-1]
             raw = "\n".join(lines).strip()
         parsed = json.loads(raw)
-        if not isinstance(parsed, dict) or set(parsed) != MODEL_OUTPUT_FIELDS:
+        if not isinstance(parsed, dict):
+            raise ValueError("Ollama model output fields do not match the generation contract")
+        # The field is generated in the current prompt.  Accept only the
+        # immediately previous contract as a compatibility path for a running
+        # Ollama model that has not yet begun emitting summary.
+        if set(parsed) == MODEL_OUTPUT_FIELDS - {"summary"}:
+            parsed["summary"] = _fallback_summary(parsed.get("draft_message", ""))
+        if set(parsed) != MODEL_OUTPUT_FIELDS:
             raise ValueError("Ollama model output fields do not match the generation contract")
         # 관련 주제 기능은 현재 RagServiceConfig에서 꺼져 있다. Qwen이 문자열 후보를
         # 만들어 계약 검증을 깨뜨리지 않도록 MVP에서는 실행 코드가 빈 배열로 고정한다.
