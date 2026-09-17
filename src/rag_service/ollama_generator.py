@@ -13,7 +13,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "response-type-v2-summary-ollama"
+PROMPT_VERSION = "response-type-v3-complete-summary-ollama"
 MODEL_OUTPUT_FIELDS = {
     "candidate_response_type",
     "summary",
@@ -40,7 +40,7 @@ OLLAMA_OUTPUT_SCHEMA: dict[str, Any] = {
                 "out_of_scope",
             ],
         },
-        "summary": {"type": "string", "minLength": 1, "maxLength": 240},
+        "summary": {"type": "string", "minLength": 1},
         "draft_message": {"type": "string", "minLength": 1},
         "used_chunk_ids": STRING_ARRAY_SCHEMA,
         "clarification": {
@@ -157,7 +157,10 @@ SYSTEM_PROMPT = """당신은 검색된 역사·문화 문서를 근거로 답변
 - related_topic_candidates
 
 [출력 규칙]
-- summary는 화면의 '핵심 요약'에 바로 표시할 한국어 1~2문장이다. answered와
+- summary는 화면의 '핵심 요약'에 바로 표시할 완결된 한국어 1~2문장이다.
+  글자 수 제한은 없지만 핵심 결론만 간결하게 쓰고, 세부 사례와 부연 설명은
+  draft_message에 남긴다. 연결 어미로 끝내지 말고 각 문장을 종결 어미와
+  마침표(질문은 물음표)로 반드시 끝맺는다. answered와
   corrected_premise에서는 draft_message의 결론과 가장 중요한 근거만 짧게 요약하고,
   draft_message나 검색 문맥에 없는 사실은 쓰지 않는다. 다른 응답 유형에서는
   summary에 draft_message와 같은 안내 문구를 넣는다.
@@ -319,9 +322,25 @@ def _fallback_summary(message: str) -> str:
     or after an upgrade.  Treat that narrow case as a compatibility fallback,
     rather than turning an otherwise grounded answer into a 502 response.
     """
-    normalized = re.sub(r"\s+", " ", str(message or "")).strip()
-    sentences = re.findall(r"[^.!?。！？]+[.!?。！？]?", normalized)
-    return " ".join(sentence.strip() for sentence in sentences[:2] if sentence.strip()) or normalized
+    return _complete_summary("", message)
+
+
+def _complete_summary(summary: str, message: str) -> str:
+    """Prefer 1–2 terminated sentences; never invent the end of a fragment.
+
+    This is a punctuation heuristic, not a Korean grammar checker. Splitting
+    only at whitespace/end preserves decimal numbers and dotted names.
+    """
+    for text in (summary, message):
+        normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+        complete = []
+        start = 0
+        for ending in re.finditer(r'''[.!?。！？]["'”’」』)]*(?:\s+|$)''', normalized):
+            complete.append(normalized[start:ending.end()].strip())
+            start = ending.end()
+        if complete:
+            return " ".join(complete[:2])
+    raise ValueError("Neither summary nor draft_message contains a complete sentence")
 
 
 def _normalize_corrected_premise(model_output: dict[str, Any], question: str) -> None:
@@ -586,6 +605,8 @@ class OllamaGenerator:
             parsed["summary"] = _fallback_summary(parsed.get("draft_message", ""))
         if set(parsed) != MODEL_OUTPUT_FIELDS:
             raise ValueError("Ollama model output fields do not match the generation contract")
+        if isinstance(parsed["summary"], str) and isinstance(parsed["draft_message"], str):
+            parsed["summary"] = _complete_summary(parsed["summary"], parsed["draft_message"])
         # 관련 주제 기능은 현재 RagServiceConfig에서 꺼져 있다. Qwen이 문자열 후보를
         # 만들어 계약 검증을 깨뜨리지 않도록 MVP에서는 실행 코드가 빈 배열로 고정한다.
         parsed["related_topic_candidates"] = []

@@ -5,6 +5,7 @@ import unittest
 
 from rag_service.ollama_generator import (
     OllamaGenerator,
+    _complete_summary,
     _keep_alive_value,
     _normalize_corrected_premise,
     _repair_chunk_ids,
@@ -87,6 +88,7 @@ class OllamaGeneratorTest(unittest.TestCase):
             "answered",
         )
         self.assertIn("summary", captured["payload"]["format"]["properties"])
+        self.assertNotIn("maxLength", captured["payload"]["format"]["properties"]["summary"])
         self.assertEqual(captured["payload"]["options"]["temperature"], 0.0)
         self.assertEqual(captured["payload"]["options"]["num_predict"], 640)
         self.assertIn(CONTEXT["content"], captured["payload"]["messages"][1]["content"])
@@ -99,6 +101,52 @@ class OllamaGeneratorTest(unittest.TestCase):
         self.assertEqual(result["used_chunk_ids"], [CONTEXT["chunk_id"]])
         self.assertEqual(result["generation_metadata"]["model_id"], "qwen3:8b")
         self.assertEqual(result["generation_metadata"]["token_usage"]["total_tokens"], 150)
+
+    def test_complete_summary_preserves_long_sentences_without_character_limit(self) -> None:
+        summary = "강강술래는 " + "노래와 춤이 어우러지는 " * 30 + "민속놀이입니다."
+        self.assertGreater(len(summary), 240)
+        self.assertEqual(_complete_summary(summary, "본문입니다."), summary)
+
+    def test_complete_summary_limits_sentence_count_and_drops_unfinished_tail(self) -> None:
+        for summary in (
+            "전통 놀이입니다. 함께 춤을 춥니다. 원형을 이루며",
+            "전통 놀이입니다. 함께 춤을 춥니다. 노래도 부릅니다.",
+        ):
+            with self.subTest(summary=summary):
+                self.assertEqual(
+                    _complete_summary(summary, "본문입니다."),
+                    "전통 놀이입니다. 함께 춤을 춥니다.",
+                )
+
+    def test_complete_summary_uses_body_when_summary_has_no_complete_sentence(self) -> None:
+        self.assertEqual(
+            _complete_summary("원형을 이루며", "손을 잡고 춤을 춥니다. 노래를 부르며"),
+            "손을 잡고 춤을 춥니다.",
+        )
+
+    def test_complete_summary_preserves_decimal_and_question(self) -> None:
+        summary = "높이는 3.5m입니다. 어떤 부분이 궁금한가요?"
+        self.assertEqual(_complete_summary(summary, "본문입니다."), summary)
+
+    def test_complete_summary_rejects_fragments_in_both_fields(self) -> None:
+        with self.assertRaisesRegex(ValueError, "complete sentence"):
+            _complete_summary("원형을 이루며", "노래를 부르며")
+
+    def test_complete_summary_preserves_closing_quote(self) -> None:
+        summary = '그는 "함께 춤을 춥니다."'
+        self.assertEqual(_complete_summary(summary, "본문입니다."), summary)
+
+    def test_model_output_normalizes_unfinished_summary(self) -> None:
+        output = OllamaGenerator._model_output({"message": {"content": json.dumps({
+            "candidate_response_type": "answered",
+            "summary": "전통 놀이입니다. 원형을 이루며",
+            "draft_message": "손을 잡고 원형으로 춤을 춥니다.",
+            "used_chunk_ids": ["CTX-1"],
+            "clarification": None,
+            "premise_correction": None,
+            "related_topic_candidates": [],
+        }, ensure_ascii=False)}})
+        self.assertEqual(output["summary"], "전통 놀이입니다.")
 
     def test_restores_context_refs_in_nested_contract_fields(self) -> None:
         def transport(url: str, payload: dict, timeout: float) -> dict:
