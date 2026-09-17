@@ -320,6 +320,18 @@ def _clean_correction_message(message: str) -> str:
     ).strip()
 
 
+def _clean_correction_summary(model_output: dict[str, Any]) -> None:
+    """최종 교정 답변에서 요약 자체에 정정 표현이 있을 때만 시작을 정리한다."""
+    if model_output.get("candidate_response_type") != "corrected_premise":
+        return
+    summary = model_output.get("summary")
+    if not isinstance(summary, str) or not _has_correction_language(summary):
+        return
+    cleaned = _clean_correction_message(summary)
+    if cleaned:
+        model_output["summary"] = cleaned
+
+
 def _first_sentence(message: str) -> str:
     sentences = re.split(r"(?<=[.!?。！？])\s+", message.strip(), maxsplit=1)
     return sentences[0].strip() if sentences else message.strip()
@@ -477,6 +489,7 @@ class OllamaGenerator:
         # ID 검증 결과 교정 근거가 사라져 insufficient로 내려간 경우를 포함해
         # 최종 상세 필드 모양을 한 번 더 계약에 맞춘다.
         _normalize_corrected_premise(model_output, generation_request["question"])
+        _clean_correction_summary(model_output)
 
         prompt_tokens = self._non_negative_int(response.get("prompt_eval_count"))
         completion_tokens = self._non_negative_int(response.get("eval_count"))
