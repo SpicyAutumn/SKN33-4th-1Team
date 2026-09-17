@@ -71,3 +71,31 @@ class CorrectionDisplayTest(unittest.TestCase):
         self.cards.render({"response_type": "answered", "message": "정상 답변"})
         self.st.write.assert_called_once_with("정상 답변")
         self.cards._listen_button.assert_called_once_with("answer", "정상 답변")
+
+    def test_top_level_summary_does_not_replace_correction_detail(self):
+        response = {
+            "response_type": "corrected_premise",
+            "summary": "새 서비스의 일반 요약",
+            "message": "2001년이 아니라 2002년에 개관했습니다.",
+            "premise_correction": {"corrected_premise": "2002년 개관"},
+        }
+        before = deepcopy(response)
+        self.cards.render(response)
+        self.assertEqual([call.args[0] for call in self.st.write.call_args_list],
+                         ["2002년 개관", response["message"]])
+        self.cards._listen_button.assert_called_once_with(
+            "correction", "2002년 개관\n\n" + response["message"])
+        self.assertEqual(response, before)
+
+    def test_new_summary_does_not_change_missing_detail_fallback(self):
+        self.cards.render({"response_type": "corrected_premise",
+                           "summary": "새 서비스 요약", "message": "전체 설명"})
+        self.st.write.assert_called_once_with("전체 설명")
+        self.cards._listen_button.assert_called_once_with("correction", "전체 설명")
+
+    def test_new_summary_does_not_change_exact_duplicate_rule(self):
+        self.cards.render({"response_type": "corrected_premise",
+                           "summary": "다른 요약", "message": "동일 정정 문구",
+                           "premise_correction": {"corrected_premise": "동일 정정 문구"}})
+        self.st.write.assert_called_once_with("동일 정정 문구")
+        self.cards._listen_button.assert_called_once_with("correction", "동일 정정 문구")
