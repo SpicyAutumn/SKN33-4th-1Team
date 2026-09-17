@@ -53,3 +53,16 @@ def build_network(document_id: str) -> dict[str, Any] | None:
         return graph.build_map(document_id, neighbors=_neighbors())
     except Exception as exc:
         raise HeritageNetworkUnavailableError("Heritage network request failed.") from exc
+
+
+@lru_cache(maxsize=256)
+def build_network_for_question(question: str, document_ids: tuple[str, ...]) -> dict[str, Any] | None:
+    """Resolve the user's subject first; citations are fallback candidates only."""
+    graph = _graph_module()
+    try:
+        root = graph.catalog().resolve_question(question, document_ids)
+        if root is None:
+            return None
+        return graph.build_map(root.document_id, neighbors=_neighbors())
+    except Exception as exc:
+        raise HeritageNetworkUnavailableError("Heritage network request failed.") from exc

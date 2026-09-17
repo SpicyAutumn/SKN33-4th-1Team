@@ -69,22 +69,29 @@ const api = async (path, options = {}) => {
 };
 
 const networkColors = ["#d3a84b", "#3b9a7a", "#4d91ad", "#c9774f", "#8b70b5"];
-const shortLabel = (value, limit = 12) => value.length > limit ? `${value.slice(0, limit)}…` : value;
 
-function HeritageNetwork({ initialDocumentId, initialTitle, onAsk }) {
+function HeritageNetwork({ question, citations, onAsk }) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [trail, setTrail] = useState([]);
+  const documentIds = citations.map((citation) => citation.document_id).filter(Boolean);
+  const initialDocumentId = documentIds[0];
+  const networkKey = `${question}|${documentIds.join(",")}`;
 
-  useEffect(() => { setOpen(false); setData(null); setError(""); setTrail([]); }, [initialDocumentId]);
+  useEffect(() => { setOpen(false); setData(null); setError(""); setTrail([]); }, [networkKey]);
 
-  const load = async (documentId, remember = true) => {
-    if (!documentId) return;
+  const load = async ({ documentId = "", subject = false }, remember = true) => {
+    if (!documentId && !subject) return;
     setOpen(true); setLoading(true); setError("");
     try {
-      const next = await api(`heritage-network?document_id=${encodeURIComponent(documentId)}`);
+      const params = new URLSearchParams();
+      if (subject) {
+        params.set("question", question);
+        params.set("document_ids", documentIds.join(","));
+      } else params.set("document_id", documentId);
+      const next = await api(`heritage-network?${params.toString()}`);
       if (remember && data?.root) setTrail((items) => [...items.slice(-4), data.root]);
       setData(next);
     } catch (requestError) { setError(requestError.message); }
@@ -95,46 +102,20 @@ function HeritageNetwork({ initialDocumentId, initialTitle, onAsk }) {
     const previous = trail[trail.length - 1];
     if (!previous) return;
     setTrail((items) => items.slice(0, -1));
-    void load(previous.document_id, false);
+    void load({ documentId: previous.document_id }, false);
   };
 
-  if (!initialDocumentId) return null;
-  if (!open) return <section className="network-entry"><div><b>연관 문화유산 탐색</b><p>답변에 사용된 출처에서 시대·종류·지역으로 이어지는 유산을 살펴보세요.</p></div><button type="button" onClick={() => load(initialDocumentId, false)}>네트워크 열기 →</button></section>;
+  if (!question && !initialDocumentId) return null;
+  if (!open) return <section className="network-entry"><div><b>연관 문화유산 탐색</b><p>질문의 문화유산 주제에서 가까운 유물과 유산을 살펴보세요.</p></div><button type="button" onClick={() => load({ subject: true }, false)}>네트워크 열기 →</button></section>;
 
   const branches = data?.branches || [];
-  const centerX = 500; const centerY = 360;
   return <section className="heritage-network">
-    <header className="network-header"><div><span>문화유산 네트워크</span><h3>{data?.root?.title || initialTitle}</h3></div><div className="network-actions">{trail.length > 0 && <button type="button" onClick={goBack}>← 이전</button>}<button type="button" onClick={() => setOpen(false)}>접기</button></div></header>
+    <header className="network-header"><div><span>문화유산 네트워크</span><h3>{data?.root?.title || "질문 주제를 찾고 있어요"}</h3></div><div className="network-actions">{trail.length > 0 && <button type="button" onClick={goBack}>← 이전</button>}<button type="button" onClick={() => setOpen(false)}>접기</button></div></header>
     {loading && <div className="network-status">연결된 문화유산을 찾고 있어요.</div>}
-    {error && <div className="network-status network-error">{error}<button type="button" onClick={() => load(data?.root?.document_id || initialDocumentId, false)}>다시 시도</button></div>}
+    {error && <div className="network-status network-error">{error}<button type="button" onClick={() => load(data?.root?.document_id ? { documentId: data.root.document_id } : { subject: true }, false)}>다시 시도</button></div>}
     {data && !loading && !error && <>
-      <div className="network-canvas"><svg viewBox="0 0 1000 720" role="img" aria-label={`${data.root.title} 연관 문화유산 네트워크`}>
-        {branches.map((branch, branchIndex) => {
-          const angle = -Math.PI / 2 + (branchIndex * Math.PI * 2 / Math.max(branches.length, 1));
-          const branchX = centerX + Math.cos(angle) * 235;
-          const branchY = centerY + Math.sin(angle) * 170;
-          const color = networkColors[branchIndex % networkColors.length];
-          return <g key={branch.title}>
-            <line className="network-edge" x1={centerX} y1={centerY} x2={branchX} y2={branchY} style={{ stroke: color }} />
-            <rect className="network-branch" x={branchX - 70} y={branchY - 19} width="140" height="38" rx="19" style={{ stroke: color }} />
-            <text className="network-branch-label" x={branchX} y={branchY + 5}>{shortLabel(branch.title, 10)}</text>
-            {(branch.nodes || []).map((node, nodeIndex, nodes) => {
-              const offset = (nodeIndex - (nodes.length - 1) / 2) * 46;
-              const nodeX = centerX + Math.cos(angle) * 385 + (-Math.sin(angle) * offset);
-              const nodeY = centerY + Math.sin(angle) * 275 + (Math.cos(angle) * offset);
-              return <g key={node.document_id} className="network-node" role="button" tabIndex="0" onClick={() => load(node.document_id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") load(node.document_id); }}>
-                <title>{`${node.title}\n${node.summary || node.reason}`}</title>
-                <line x1={branchX} y1={branchY} x2={nodeX} y2={nodeY} style={{ stroke: color }} />
-                <rect x={nodeX - 76} y={nodeY - 18} width="152" height="36" rx="12" style={{ stroke: color }} />
-                <text x={nodeX} y={nodeY + 5}>{shortLabel(node.title)}</text>
-              </g>;
-            })}
-          </g>;
-        })}
-        <g className="network-root"><rect x={centerX - 105} y={centerY - 38} width="210" height="76" rx="22" /><text x={centerX} y={centerY + 7}>{shortLabel(data.root.title, 14)}</text></g>
-      </svg></div>
-      <div className="network-root-card"><div><b>지금 보고 있는 문화유산</b><p>{data.root.summary || "연결된 문화유산을 선택해 탐색해 보세요."}</p><div>{(data.root.fields || []).map(([label, value]) => <span key={label}><b>{label}</b> {value}</span>)}</div></div><div className="network-root-links"><button type="button" onClick={() => onAsk(`${data.root.title}에 대해 알려줘`)}>이 유산 질문하기</button>{data.root.source_url && <a href={data.root.source_url} target="_blank" rel="noreferrer">공식 원문 ↗</a>}</div></div>
-      <div className="network-legend">{branches.map((branch, index) => <span key={branch.title}><i style={{ background: networkColors[index % networkColors.length] }} />{branch.title}</span>)}</div>
+      <div className="network-map" role="group" aria-label={`${data.root.title} 연관 문화유산 네트워크`}><div className="network-topic"><small>탐색 주제</small><b>{data.root.title}</b></div><div className="network-stem" aria-hidden="true" /><div className="network-branch-grid">{branches.map((branch, branchIndex) => <section className="network-branch-group" style={{ "--branch-color": networkColors[branchIndex % networkColors.length] }} key={branch.title}><header><div><b>{branch.title}</b><span>{(branch.nodes || []).length}개</span></div><p>{branch.note}</p></header><div className="network-node-list">{(branch.nodes || []).map((node) => <button type="button" key={node.document_id} onClick={() => load({ documentId: node.document_id })}><span>{node.title}</span><small>{node.reason}</small>{node.summary && <em>{node.summary}</em>}</button>)}</div></section>)}</div></div>
+      <div className="network-root-card"><div><b>현재 탐색 주제</b><p>{data.root.summary || "아래 유물과 유산을 선택해 탐색을 이어가 보세요."}</p><div>{(data.root.fields || []).map(([label, value]) => <span key={label}><b>{label}</b> {value}</span>)}</div></div><div className="network-root-links"><button type="button" onClick={() => onAsk(`${data.root.title}에 대해 알려줘`)}>이 주제 질문하기</button>{data.root.source_url && <a href={data.root.source_url} target="_blank" rel="noreferrer">공식 원문 ↗</a>}</div></div>
     </>}
   </section>;
 }
@@ -178,7 +159,6 @@ function SourcePanel({ citations }) {
 function AnswerView({ question, level, result, loading, onBack, onChangeLevel, onReport, onAsk }) {
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
-  const rootCitation = citations.find((citation) => citation.document_id);
   return <section className="answer-page"><div className="answer-shell">
     <button type="button" className="back-to-search" onClick={onBack}>← 첫 화면으로</button>
     <section className="asked-question"><div><span className="question-kicker">질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={loading || value === level}>{label}</button>)}</div></section>
@@ -193,7 +173,7 @@ function AnswerView({ question, level, result, loading, onBack, onChangeLevel, o
           {result.search_record_id && <button type="button" className="report-button" onClick={onReport}>이 답변 오류 제보</button>}
         </div>
       </article><SourcePanel citations={citations} /></div>
-      <HeritageNetwork initialDocumentId={rootCitation?.document_id} initialTitle={rootCitation?.title} onAsk={onAsk} />
+      <HeritageNetwork question={question} citations={citations} onAsk={onAsk} />
     </>}
   </div></section>;
 }

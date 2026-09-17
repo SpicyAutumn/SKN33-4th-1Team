@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -72,6 +73,11 @@ _LEVEL_SEPARATOR = "/"
 def _clean(value: Any) -> str:
     text = str(value or "").strip()
     return "" if text.upper() == "NONE" else text
+
+
+def _search_key(value: Any) -> str:
+    """질문과 표제어를 비교할 때 공백·문장부호 차이를 없앤다."""
+    return "".join(re.findall(r"[0-9A-Za-z가-힣]", _clean(value))).lower()
 
 
 def _has_final(word: str) -> bool | None:
@@ -169,6 +175,11 @@ class Catalog:
         for entry in self.entries:
             # 같은 제목이 여럿이면 먼저 나온 것을 쓴다. 목록 순서가 곧 수집 순서다.
             self.by_title.setdefault(entry.title, entry)
+        self.search_titles = [
+            (_search_key(entry.title), entry)
+            for entry in self.entries
+            if len(_search_key(entry.title)) >= 2
+        ]
 
     def find(self, key: str) -> Entry | None:
         key = _clean(key)
@@ -218,6 +229,36 @@ class Catalog:
             )
 
         return min(found.values(), key=score)["entry"]
+
+    def resolve_question(self, question: str, document_ids: Iterable[str] = ()) -> Entry | None:
+        """질문에서 사용자가 지목한 유산·주제를 네트워크 뿌리로 고른다.
+
+        답변의 첫 인용 문서는 근거 자료일 뿐 네트워크의 주제가 아니다. 예를 들어
+        `청자에 대해 알려줘`의 첫 인용이 `청자 음각 연화문 병`이어도 뿌리는
+        표제어 `청자`여야 한다. 질문에 실제 표제어가 있으면 가장 긴 표제어를
+        우선하고, 찾지 못했을 때만 검색 결과 문서를 보조 후보로 사용한다.
+        """
+        asked = _search_key(question)
+        if asked:
+            matched = [
+                entry
+                for title_key, entry in self.search_titles
+                if title_key in asked
+            ]
+            if matched:
+                return max(
+                    matched,
+                    key=lambda entry: (
+                        len(_search_key(entry.title)),
+                        1 if self.is_heritage(entry) else 0,
+                    ),
+                )
+
+        contexts = [
+            {"document_id": document_id, "retrieval_rank": rank}
+            for rank, document_id in enumerate(document_ids, start=1)
+        ]
+        return self.resolve(contexts, question)
 
     def values_sharing_top_level(self, column: str, value: str) -> list[str]:
         """같은 대분류에 속한 원본 문자열 목록. Pinecone `$in` 필터에 쓴다."""
@@ -462,6 +503,12 @@ def build_map(
     # 1. 구성 요소 — 만든 목록만으로 확실하게 판별된다.
     parts = [e for e in book.titles_starting_with(root.title) if book.is_heritage(e)]
     if parts:
+        # 개념 표제어는 이름만 같은 다른 분야의 작품까지 품을 수 있다. `청자`에
+        # `청자부`(현대문학)가 붙는 식의 동음 연결을 막고 같은 분야의 유물을 쓴다.
+        if not book.is_heritage(root) and root.field:
+            same_field = [entry for entry in parts if entry.field == root.field]
+            if same_field:
+                parts = same_field
         ordered = sorted(parts, key=lambda e: e.title)
         if anchor:
             # 가나다순으로 두면 `경복궁 강녕전`이 앞서고 정작 정전인 `근정전`이
@@ -473,11 +520,15 @@ def build_map(
                 metadata_filter={"document_id": {"$in": sorted(by_id)}},
             )
             ordered = [by_id[d] for d, _ in ranked if d in by_id] or ordered
+        root_is_heritage = book.is_heritage(root)
         add(
-            "딸린 유산",
-            f"이름이 `{root.title}`으로 시작하는 유산입니다. "
-            "딸린 건물이거나 같은 계열의 기록입니다.",
-            [_node(e, "이름이 이어집니다") for e in ordered],
+            "딸린 유산" if root_is_heritage else "관련 유물·유산",
+            (
+                f"`{root.title}`에 속하는 실제 유물과 유산입니다."
+                if not root_is_heritage
+                else f"이름이 `{root.title}`으로 시작하는 딸린 유산입니다."
+            ),
+            [_node(e, f"{root.title} 계열") for e in ordered],
         )
         # 보여 주지 못한 구성 요소도 다른 가지에 다시 넣지 않는다. 그러지 않으면
         # `같은 시대`가 온통 `경복궁 ○○`으로 채워져 다른 유산으로 갈 길이 막힌다.
@@ -577,10 +628,17 @@ def build_map(
     # 여기도 궁궐 옆의 궁궐이 나온다. 유적을 빼야 인물·사건·개념이 올라온다.
     if anchor:
         other_kinds = book.heritage_type_values(exclude_top_level=top_level(root.item_type))
+        other_filter: dict[str, Any] | None = (
+            {"primary_type": {"$in": other_kinds}} if other_kinds else None
+        )
+        if not book.is_heritage(root) and root.field and other_filter:
+            other_filter = {
+                "$and": [other_filter, {"field": {"$eq": root.field}}]
+            }
         found = neighbors.search(
             anchor,
             limit=limit,
-            metadata_filter={"primary_type": {"$in": other_kinds}} if other_kinds else None,
+            metadata_filter=other_filter,
             exclude_documents=used,
         )
         kind = top_level(root.item_type)
