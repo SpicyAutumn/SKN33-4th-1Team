@@ -18,7 +18,7 @@ from .rag_runtime import RagUnavailableError, answer as rag_answer
 SESSION_COOKIE = "heritage_session"
 SESSION_DAYS = 7
 LEVELS = {"easy", "general", "advanced"}
-REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "other"}
+REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "image_problem", "feature_error", "other"}
 
 
 def _payload(request):
