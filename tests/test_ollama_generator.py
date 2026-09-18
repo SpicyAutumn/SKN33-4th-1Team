@@ -137,7 +137,20 @@ class OllamaGeneratorTest(unittest.TestCase):
         summary = '그는 "함께 춤을 춥니다."'
         self.assertEqual(_complete_summary(summary, "본문입니다."), summary)
 
-    def test_model_output_normalizes_unfinished_summary(self) -> None:
+    def test_unpunctuated_endings_and_tail_are_preserved(self) -> None:
+        for text in ('기록관입니다', '전시를 합니다', '기록이 있다',
+                     '어떤 부분이 궁금한가요', '전통 놀이입니다. 함께 춤을 춥니다',
+                     '그는 "함께 춤을 춥니다"'):
+            with self.subTest(text=text):
+                self.assertEqual(_complete_summary(text, '본문입니다.'), text)
+
+    def test_unpunctuated_connective_tails_are_not_completed(self) -> None:
+        for tail in ('원형을 이루며', '손을 잡고', '노래를 부르면서', '이 전통은'):
+            with self.subTest(tail=tail):
+                self.assertEqual(_complete_summary(tail, '완결된 본문입니다'), '완결된 본문입니다')
+                self.assertEqual(_complete_summary('전통 놀이입니다. ' + tail, ''), '전통 놀이입니다.')
+
+    def test_model_output_preserves_summary_until_correction_and_evidence_checks(self) -> None:
         output = OllamaGenerator._model_output({"message": {"content": json.dumps({
             "candidate_response_type": "answered",
             "summary": "전통 놀이입니다. 원형을 이루며",
@@ -147,7 +160,7 @@ class OllamaGeneratorTest(unittest.TestCase):
             "premise_correction": None,
             "related_topic_candidates": [],
         }, ensure_ascii=False)}})
-        self.assertEqual(output["summary"], "전통 놀이입니다.")
+        self.assertEqual(output["summary"], "전통 놀이입니다. 원형을 이루며")
 
     def test_restores_context_refs_in_nested_contract_fields(self) -> None:
         def transport(url: str, payload: dict, timeout: float) -> dict:
@@ -263,7 +276,7 @@ class OllamaGeneratorTest(unittest.TestCase):
         output = OllamaGenerator._model_output(response)
         self.assertEqual(
             output["summary"],
-            "경복궁은 1395년에 완성되었습니다. 조선 왕실의 중심 궁궐입니다.",
+            "",
         )
 
     def test_discards_related_topics_while_mvp_feature_is_disabled(self) -> None:

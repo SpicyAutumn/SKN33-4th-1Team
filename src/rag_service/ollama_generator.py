@@ -270,6 +270,7 @@ def _repair_chunk_ids(model_output: dict[str, Any], allowed: list[str]) -> None:
         model_output["draft_message"] = (
             "현재 확보한 자료에서는 질문에 답할 충분한 근거를 찾지 못했습니다."
         )
+        model_output["summary"] = model_output["draft_message"]
     model_output["used_chunk_ids"] = used
 
     correction = model_output.get("premise_correction")
@@ -281,6 +282,7 @@ def _repair_chunk_ids(model_output: dict[str, Any], allowed: list[str]) -> None:
             model_output["draft_message"] = (
                 "현재 확보한 자료에서는 질문의 전제를 바로잡을 충분한 근거를 찾지 못했습니다."
             )
+            model_output["summary"] = model_output["draft_message"]
             model_output["used_chunk_ids"] = []
             model_output["premise_correction"] = None
 
@@ -340,21 +342,10 @@ def _first_sentence(message: str) -> str:
     return sentences[0].strip() if sentences else message.strip()
 
 
-def _fallback_summary(message: str) -> str:
-    """Keep an answer available when an older model omits only ``summary``.
-
-    The current prompt and JSON schema ask the model for this field.  Some
-    local model builds can still return the prior contract during a cold start
-    or after an upgrade.  Treat that narrow case as a compatibility fallback,
-    rather than turning an otherwise grounded answer into a 502 response.
-    """
-    return _complete_summary("", message)
-
-
 def _complete_summary(summary: str, message: str) -> str:
-    """Prefer 1–2 terminated sentences; never invent the end of a fragment.
+    """Select up to two sentences using punctuation or known Korean endings.
 
-    This is a punctuation heuristic, not a Korean grammar checker. Splitting
+    This is a surface heuristic, not a Korean grammar/meaning checker. Splitting
     only at whitespace/end preserves decimal numbers and dotted names.
     """
     for text in (summary, message):
@@ -364,6 +355,11 @@ def _complete_summary(summary: str, message: str) -> str:
         for ending in re.finditer(r'''[.!?。！？]["'”’」』)]*(?:\s+|$)''', normalized):
             complete.append(normalized[start:ending.end()].strip())
             start = ending.end()
+        # Conservative Korean ending heuristic, not a semantic classifier.
+        # Preserve an unpunctuated final sentence without inventing punctuation.
+        tail = normalized[start:].strip()
+        if re.search(r'''(?:[가-힣]니다|한다|된다|했다|됐다|있다|없다|이다|해요|돼요|예요|이에요|가요|나요|까요)["'”’」』)]*$''', tail):
+            complete.append(tail)
         if complete:
             return " ".join(complete[:2])
     raise ValueError("Neither summary nor draft_message contains a complete sentence")
@@ -509,6 +505,10 @@ class OllamaGenerator:
         # 최종 상세 필드 모양을 한 번 더 계약에 맞춘다.
         _normalize_corrected_premise(model_output, generation_request["question"])
         _clean_correction_summary(model_output)
+        if isinstance(model_output["summary"], str) and isinstance(model_output["draft_message"], str):
+            model_output["summary"] = _complete_summary(
+                model_output["summary"], model_output["draft_message"]
+            )
 
         prompt_tokens = self._non_negative_int(response.get("prompt_eval_count"))
         completion_tokens = self._non_negative_int(response.get("eval_count"))
@@ -634,11 +634,10 @@ class OllamaGenerator:
         # immediately previous contract as a compatibility path for a running
         # Ollama model that has not yet begun emitting summary.
         if set(parsed) == MODEL_OUTPUT_FIELDS - {"summary"}:
-            parsed["summary"] = _fallback_summary(parsed.get("draft_message", ""))
+            # Defer body fallback until correction cleanup and evidence repair.
+            parsed["summary"] = ""
         if set(parsed) != MODEL_OUTPUT_FIELDS:
             raise ValueError("Ollama model output fields do not match the generation contract")
-        if isinstance(parsed["summary"], str) and isinstance(parsed["draft_message"], str):
-            parsed["summary"] = _complete_summary(parsed["summary"], parsed["draft_message"])
         # 관련 주제 기능은 현재 RagServiceConfig에서 꺼져 있다. Qwen이 문자열 후보를
         # 만들어 계약 검증을 깨뜨리지 않도록 MVP에서는 실행 코드가 빈 배열로 고정한다.
         parsed["related_topic_candidates"] = []
