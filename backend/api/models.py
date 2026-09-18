@@ -89,3 +89,46 @@ class ErrorReport(models.Model):
         db_table = "error_reports"
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["owner", "created_at"], name="error_report_owner_created_idx")]
+
+
+class ErrorReportType(models.Model):
+    """One selected error type for an error report.
+
+    `ErrorReport.category` is retained as the primary/legacy type while the
+    feedback UI transitions to selecting one or more types.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    error_report = models.ForeignKey(ErrorReport, on_delete=models.CASCADE, related_name="types")
+    code = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "error_report_types"
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["error_report", "code"], name="error_report_type_uq"),
+        ]
+
+
+class ErrorReportQuote(models.Model):
+    """A sentence or passage selected from the answer being reported.
+
+    Offsets make repeated identical wording distinguishable. They are nullable
+    so reports created before sentence-selection UI is released remain valid.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    error_report = models.ForeignKey(ErrorReport, on_delete=models.CASCADE, related_name="selected_quotes")
+    ordinal = models.PositiveSmallIntegerField()
+    text = models.TextField()
+    start_offset = models.PositiveIntegerField(null=True, blank=True)
+    end_offset = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "error_report_quotes"
+        ordering = ["ordinal"]
+        constraints = [
+            models.UniqueConstraint(fields=["error_report", "ordinal"], name="error_report_quote_ordinal_uq"),
+        ]

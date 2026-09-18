@@ -12,13 +12,13 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .models import AuthSession, ErrorReport, SearchCitation, SearchRecord, ServiceUser
+from .models import AuthSession, ErrorReport, ErrorReportQuote, ErrorReportType, SearchCitation, SearchRecord, ServiceUser
 from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 SESSION_COOKIE = "heritage_session"
 SESSION_DAYS = 7
 LEVELS = {"easy", "general", "advanced"}
-REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "other"}
+REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "image_problem", "feature_error", "other"}
 
 
 def _payload(request):
@@ -114,6 +114,97 @@ def _record_data(record, detail=False):
             "citations": [_citation_data(item) for item in record.citations.all()],
         })
     return data
+
+
+def _report_data(report, detail=False):
+    """Serialize both legacy and multi-select error-report fields."""
+    categories = [item.code for item in report.types.all()]
+    # Reports made before the multi-select release have no child type rows.
+    if not categories and report.category:
+        categories = [report.category]
+    data = {
+        "id": str(report.id),
+        "search_record_id": str(report.search_record_id),
+        "category": report.category,
+        "categories": categories,
+        "status": report.status,
+        "question_preview": report.search_record.question[:120],
+        "created_at": report.created_at.isoformat(),
+        "updated_at": report.updated_at.isoformat(),
+    }
+    if detail:
+        data.update({
+            "content": report.content,
+            "staff_reply": report.staff_reply,
+            "question": report.search_record.question,
+            "answer_preview": report.search_record.message[:160],
+            "selected_quotes": [
+                {
+                    "id": item.id,
+                    "text": item.text,
+                    "start_offset": item.start_offset,
+                    "end_offset": item.end_offset,
+                }
+                for item in report.selected_quotes.all()
+            ],
+        })
+    return data
+
+
+def _report_categories(payload):
+    """Accept the new `categories` array and the current UI's `category`."""
+    raw_categories = payload.get("categories")
+    if raw_categories is None:
+        raw_categories = [payload.get("category")]
+    if not isinstance(raw_categories, list):
+        return None
+    categories = []
+    for item in raw_categories:
+        code = str(item or "").strip()
+        if code not in REPORT_CATEGORIES:
+            return None
+        if code not in categories:
+            categories.append(code)
+    return categories or None
+
+
+def _selected_quotes(payload, answer_text):
+    """Validate up to five independently selected answer passages.
+
+    A quote can be sent without offsets until the sentence-selection UI is
+    released. When offsets are sent, they must point to exactly the selected
+    text in the stored answer; this distinguishes repeated sentences safely.
+    """
+    raw_quotes = payload.get("selected_quotes", [])
+    if raw_quotes is None:
+        raw_quotes = []
+    if not isinstance(raw_quotes, list) or len(raw_quotes) > 5:
+        return None
+    quotes = []
+    for item in raw_quotes:
+        if not isinstance(item, dict) or not isinstance(item.get("text"), str):
+            return None
+        text = item["text"]
+        if not text.strip() or len(text) > 2000:
+            return None
+        start_offset = item.get("start_offset")
+        end_offset = item.get("end_offset")
+        if (start_offset is None) != (end_offset is None):
+            return None
+        if start_offset is not None:
+            if (
+                isinstance(start_offset, bool)
+                or isinstance(end_offset, bool)
+                or not isinstance(start_offset, int)
+                or not isinstance(end_offset, int)
+                or start_offset < 0
+                or end_offset <= start_offset
+                or end_offset > len(answer_text)
+                or answer_text[start_offset:end_offset] != text
+            ):
+                return None
+        quotes.append({"text": text, "start_offset": start_offset, "end_offset": end_offset})
+    return quotes
 
 
 @require_GET
@@ -251,20 +342,48 @@ def error_reports(request):
     if error:
         return error
     if request.method == "GET":
-        reports = ErrorReport.objects.filter(owner=session.user).select_related("search_record")[:20]
-        return JsonResponse({"items": [{"id": str(item.id), "search_record_id": str(item.search_record_id), "category": item.category, "status": item.status, "question_preview": item.search_record.question[:120], "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat()} for item in reports], "next_cursor": None})
+        reports = ErrorReport.objects.filter(owner=session.user).select_related("search_record").prefetch_related("types")[:20]
+        return JsonResponse({"items": [_report_data(item) for item in reports], "next_cursor": None})
     payload = _payload(request)
     if payload is None:
         return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
     record = SearchRecord.objects.filter(id=payload.get("search_record_id"), owner=session.user).first()
-    category = str(payload.get("category", ""))
+    categories = _report_categories(payload)
+    selected_quotes = _selected_quotes(payload, record.message) if record else None
     content = str(payload.get("content", "")).strip()
     if record is None:
         return _error("RESOURCE_NOT_FOUND", "검색 기록을 찾을 수 없습니다.", 404)
-    if category not in REPORT_CATEGORIES or not 10 <= len(content) <= 2000:
-        return _error("VALIDATION_ERROR", "제보 유형과 10~2000자 내용을 확인해 주세요.", 422)
-    report = ErrorReport.objects.create(owner=session.user, search_record=record, category=category, content=content)
-    return JsonResponse({"id": str(report.id), "search_record_id": str(record.id), "category": report.category, "content": report.content, "status": report.status, "staff_reply": None, "created_at": report.created_at.isoformat(), "updated_at": report.updated_at.isoformat()}, status=201)
+    if categories is None:
+        return _error("VALIDATION_ERROR", "제보 유형을 한 개 이상 선택해 주세요.", 422)
+    if selected_quotes is None:
+        return _error("VALIDATION_ERROR", "선택 문장은 최대 5개까지, 답변의 실제 문장만 제보할 수 있습니다.", 422)
+    content_required = not selected_quotes or "other" in categories
+    if len(content) > 2000 or (content_required and len(content) < 10):
+        message = "추가 설명은 2,000자 이내로 입력해 주세요. 선택 문장이 없거나 기타 유형이면 10자 이상 필요합니다."
+        return _error("VALIDATION_ERROR", message, 422)
+    with transaction.atomic():
+        # category remains populated for current clients and legacy data tools.
+        report = ErrorReport.objects.create(
+            owner=session.user,
+            search_record=record,
+            category=categories[0],
+            content=content,
+        )
+        ErrorReportType.objects.bulk_create([
+            ErrorReportType(error_report=report, code=code) for code in categories
+        ])
+        ErrorReportQuote.objects.bulk_create([
+            ErrorReportQuote(
+                error_report=report,
+                ordinal=ordinal,
+                text=item["text"],
+                start_offset=item["start_offset"],
+                end_offset=item["end_offset"],
+            )
+            for ordinal, item in enumerate(selected_quotes, start=1)
+        ])
+    report = ErrorReport.objects.select_related("search_record").prefetch_related("types", "selected_quotes").get(id=report.id)
+    return JsonResponse(_report_data(report, detail=True), status=201)
 
 
 @require_GET
@@ -272,7 +391,7 @@ def my_error_report_detail(request, report_id):
     session, error = _require_session(request)
     if error:
         return error
-    report = ErrorReport.objects.filter(id=report_id, owner=session.user).select_related("search_record").first()
+    report = ErrorReport.objects.filter(id=report_id, owner=session.user).select_related("search_record").prefetch_related("types", "selected_quotes").first()
     if report is None:
         return _error("RESOURCE_NOT_FOUND", "오류 제보를 찾을 수 없습니다.", 404)
-    return JsonResponse({"id": str(report.id), "search_record_id": str(report.search_record_id), "category": report.category, "content": report.content, "status": report.status, "staff_reply": report.staff_reply, "question": report.search_record.question, "answer_preview": report.search_record.message[:160], "created_at": report.created_at.isoformat(), "updated_at": report.updated_at.isoformat()})
+    return JsonResponse(_report_data(report, detail=True))

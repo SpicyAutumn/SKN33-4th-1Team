@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const levels = [["easy", "초등학생"], ["general", "중·고등학생"], ["advanced", "성인 일반"]];
 const heritageStories = [
@@ -11,6 +11,14 @@ const heritageStories = [
   { title: "수원 화성", subtitle: "정조가 세운 과학적 성곽", question: "수원 화성은 왜 지어졌나요?", image: "https://commons.wikimedia.org/wiki/Special:FilePath/Wall_of_Hwaseong_Fortress_in_Suwon%2C_South_Korea.jpg?width=1280", imageAlt: "수원 화성" },
 ];
 const topics = ["조선 왕조", "불교 문화재", "유네스코 세계유산", "고려 청자", "한양 도성", "3·1 운동", "한글 창제", "왕릉과 능침"];
+const reportTypeOptions = [
+  ["incorrect_fact", "답변 내용"],
+  ["citation_mismatch", "출처·근거"],
+  ["incomplete_answer", "설명 품질"],
+  ["image_problem", "이미지"],
+  ["feature_error", "기능 오류"],
+  ["other", "기타"],
+];
 
 const koreanDate = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -62,7 +70,7 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-function AnswerView({ question, level, result, loading, onBack, onChangeLevel, onReport, onAsk }) {
+function AnswerView({ question, level, result, loading, onBack, onChangeLevel, onReport, onAsk, onSelectQuote, pendingQuote, answerTextRef }) {
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
   return <section className="answer-page"><div className="answer-shell">
@@ -72,10 +80,11 @@ function AnswerView({ question, level, result, loading, onBack, onChangeLevel, o
     {result?.error && <div className="answer-error">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
-      <div className="ai-answer-body"><section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section><p className="full-answer">{result.message}</p>
+      <div className="ai-answer-body"><section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section><p ref={answerTextRef} className="full-answer" onMouseUp={onSelectQuote}>{result.message}</p>
+        {pendingQuote && <div className="selected-quote-action"><span>선택한 문구를 제보에 추가할 수 있어요.</span><button type="button" onClick={() => onReport(pendingQuote)}>이 문구 제보</button></div>}
         {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
         {citations.length > 0 && <details className="evidence-panel"><summary><span>◌ 근거 확인</span><span className="evidence-chevron">⌄</span></summary><div className="evidence-content">{citations.map((citation) => <article key={citation.chunk_id || citation.source_url}><b>{citation.title}</b><p>{citation.content}</p><a href={citation.source_url} target="_blank" rel="noreferrer">원문 보기 ↗</a></article>)}</div></details>}
-        {result.search_record_id && <button type="button" className="report-button" onClick={onReport}>이 답변 오류 제보</button>}
+        {result.search_record_id && <div className="report-entry"><p>답변에서 문제가 있는 문장을 선택하면 더 정확하게 제보할 수 있습니다.</p><button type="button" className="report-button" onClick={() => onReport()}>답변 오류 제보</button></div>}
       </div>
     </article>}
   </div></section>;
@@ -89,15 +98,19 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportCategory, setReportCategory] = useState("incorrect_fact");
+  const [reportCategories, setReportCategories] = useState(["incorrect_fact"]);
   const [reportContent, setReportContent] = useState("");
   const [reportError, setReportError] = useState("");
+  const [reportNotice, setReportNotice] = useState("");
+  const [pendingQuote, setPendingQuote] = useState(null);
+  const [selectedQuotes, setSelectedQuotes] = useState([]);
   const [question, setQuestion] = useState("");
   const [level, setLevel] = useState("general");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
   const [today, setToday] = useState(koreanDate);
+  const answerTextRef = useRef(null);
   const showingAnswer = loading || result;
 
   useEffect(() => { api("auth/csrf").then(() => api("auth/me")).then(setUser).catch(() => {}); }, []);
@@ -123,7 +136,7 @@ export default function App() {
   const askQuestion = async (nextQuestion, nextLevel = level) => {
     const askedQuestion = nextQuestion.trim();
     if (!askedQuestion) return;
-    setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
+    setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); setPendingQuote(null); setSelectedQuotes([]); setReportOpen(false); window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       const answer = await api("searches", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: nextLevel }) });
       setResult(answer);
@@ -134,17 +147,60 @@ export default function App() {
   };
   const ask = async (event) => { event.preventDefault(); await askQuestion(question); };
   const useQuestion = (nextQuestion, nextLevel = level) => { void askQuestion(nextQuestion, nextLevel); };
-  const backToSearch = () => { setResult(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const backToSearch = () => { setResult(null); setPendingQuote(null); setSelectedQuotes([]); setReportOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const logout = async () => { await api("auth/logout", { method: "POST" }); setUser(null); };
+  const selectAnswerQuote = () => {
+    const selection = window.getSelection();
+    const answerElement = answerTextRef.current;
+    if (!selection || selection.isCollapsed || !answerElement || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!answerElement.contains(range.commonAncestorContainer)) return;
+    const text = selection.toString();
+    if (!text.trim() || text.length > 2000) return;
+    const prefixRange = range.cloneRange();
+    prefixRange.selectNodeContents(answerElement);
+    prefixRange.setEnd(range.startContainer, range.startOffset);
+    const startOffset = prefixRange.toString().length;
+    setPendingQuote({ text, start_offset: startOffset, end_offset: startOffset + text.length });
+  };
+  const addSelectedQuote = (quote) => {
+    if (!quote) return;
+    setSelectedQuotes((current) => current.some((item) => item.start_offset === quote.start_offset && item.end_offset === quote.end_offset) ? current : [...current, quote].slice(0, 5));
+    setPendingQuote(null);
+    window.getSelection()?.removeAllRanges();
+  };
+  const openReport = (quote) => {
+    if (quote) addSelectedQuote(quote);
+    setReportError(""); setReportNotice(""); setReportOpen(true);
+  };
+  const closeReport = () => { setReportOpen(false); setReportError(""); setPendingQuote(null); };
+  const toggleReportCategory = (category) => {
+    setReportCategories((current) => current.includes(category) ? current.filter((item) => item !== category) : [...current, category]);
+  };
   const submitReport = async (event) => {
     event.preventDefault(); setReportError("");
-    try { await api("me/error-reports", { method: "POST", body: JSON.stringify({ search_record_id: result.search_record_id, category: reportCategory, content: reportContent }) }); setReportOpen(false); setReportContent(""); }
+    const contentRequired = selectedQuotes.length === 0 || reportCategories.includes("other");
+    if (!reportCategories.length) { setReportError("오류 유형을 한 개 이상 선택해 주세요."); return; }
+    if (contentRequired && reportContent.trim().length < 10) { setReportError("선택 문장이 없거나 기타 유형이면 추가 설명을 10자 이상 입력해 주세요."); return; }
+    try {
+      await api("me/error-reports", {
+        method: "POST",
+        body: JSON.stringify({
+          search_record_id: result.search_record_id,
+          category: reportCategories[0],
+          categories: reportCategories,
+          selected_quotes: selectedQuotes,
+          content: reportContent,
+        }),
+      });
+      setReportOpen(false); setReportContent(""); setReportCategories(["incorrect_fact"]); setSelectedQuotes([]); setReportNotice("제보가 접수되었습니다. 내 답변 피드백에서 처리 상태를 확인할 수 있습니다.");
+    }
     catch (error) { setReportError(error.message); }
   };
 
-  return <main>
+  return <main className={reportOpen ? "report-panel-active" : ""}>
     <header className="site-header"><a className="brand" href="#top" onClick={backToSearch}><span className="brand-mark" aria-hidden="true">📚</span><span>문화유산 AI 가이드</span></a>{user ? <div className="user"><b>{user.name}</b><button className="outline" onClick={logout}>로그아웃</button></div> : <button className="outline login-button" onClick={() => setAuthMode("login")}>로그인 / 회원가입</button>}</header>
-    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onReport={() => { setReportError(""); setReportOpen(true); }} onAsk={(nextQuestion) => askQuestion(nextQuestion, level)} /> : <>
+    {showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onReport={openReport} onAsk={(nextQuestion) => askQuestion(nextQuestion, level)} onSelectQuote={selectAnswerQuote} pendingQuote={pendingQuote} answerTextRef={answerTextRef} /> : <>
       <section className="hero" id="top"><div className="hero-inner"><p className="eyebrow">🏛️ AI 기반 문화유산 학습 서비스</p><h1>어떤 역사·문화 이야기가<br />궁금한가요?</h1><p className="hero-copy">문화유산과 역사에 대해 쉽고 믿을 수 있게 알아보세요.</p><form onSubmit={ask} className="question-box"><label className="question-row" htmlFor="question"><span aria-hidden="true">⌕</span><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="예: 경복궁은 왜 지어졌나요? 고려청자의 특징은?" aria-label="질문" /><button className="primary">질문하기</button></label><div className="level-row"><span>설명 수준:</span><div>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => setLevel(value)}>{label}</button>)}</div></div></form></div></section>
       <section className="section-shell stories-section"><div className="section-title"><div><h2>오늘의 이야기</h2><p>{today.label} · 오늘의 문화유산</p></div><button type="button" className="more" onClick={() => useQuestion("오늘의 문화유산을 소개해 줘")}>더 보기 →</button></div><div className="story-grid">{selectDailyStories(today.key).map((story, index) => <button key={story.title} className={`story-card ${index === 0 ? "featured" : ""}`} onClick={() => useQuestion(story.question)}><img className="story-image" src={story.image} alt={story.imageAlt} /><span className="story-copy">{index === 0 && <span className="story-badge">오늘의 추천</span>}<b>{story.title}</b><small>{story.subtitle}</small></span></button>)}</div></section>
       <section className="topics-section"><div className="section-shell"><h2>추천 주제</h2><div className="topic-list">{topics.map((topic) => <button key={topic} onClick={() => useQuestion(`${topic}에 대해 알려줘`)}>{topic}</button>)}</div><div className="stats"><span><b>12,480</b> 등록 문화유산</span><span><b>89,200+</b> 누적 질문 답변</span><span><b>98.3%</b> 정보 출처 보유율</span></div></div></section>
@@ -152,6 +208,20 @@ export default function App() {
     </>}
     <footer><div className="footer-inner"><div><b>문화유산 AI 가이드</b><p>국가 문화유산 정보를 AI로 쉽게 알아보는 공공 서비스</p></div><nav><a href="#top">이용약관</a><a href="#top">개인정보 처리방침</a><a href="#top">오류 제보</a></nav></div></footer>
     {authMode && <div className="modal"><form onSubmit={submitAuth}><button type="button" className="close" onClick={() => setAuthMode(null)}>×</button><h2>{authMode === "signup" ? "회원가입" : "로그인"}</h2>{authMode === "signup" && <input placeholder="이름" value={username} onChange={(event) => setUsername(event.target.value)} required />}<input placeholder="이메일" type="email" value={identity} onChange={(event) => setIdentity(event.target.value)} required /><input placeholder="비밀번호 (8자 이상)" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />{authError && <p className="error">{authError}</p>}<button className="primary">{authMode === "signup" ? "가입하고 시작하기" : "로그인"}</button><button type="button" className="link" onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}>{authMode === "signup" ? "이미 계정이 있어요" : "계정 만들기"}</button></form></div>}
-    {reportOpen && <div className="modal"><form onSubmit={submitReport}><button type="button" className="close" onClick={() => setReportOpen(false)}>×</button><h2>답변 오류 제보</h2><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="incorrect_fact">사실이 틀림</option><option value="citation_mismatch">출처가 맞지 않음</option><option value="incomplete_answer">설명이 부족함</option><option value="inappropriate_content">부적절한 내용</option><option value="other">기타</option></select><textarea placeholder="10자 이상으로 내용을 작성해 주세요." value={reportContent} onChange={(event) => setReportContent(event.target.value)} minLength="10" maxLength="2000" required />{reportError && <p className="error">{reportError}</p>}<button className="primary">제보 보내기</button></form></div>}
+    {reportOpen && <aside className="report-panel" aria-label="답변 오류 제보">
+      <form onSubmit={submitReport}>
+        <header className="report-panel-header"><div><p>답변 피드백</p><h2>답변 오류 제보</h2></div><button type="button" className="close" onClick={closeReport} aria-label="제보 패널 닫기">×</button></header>
+        <p className="report-panel-copy">문제가 있는 부분을 알려주시면 답변 품질 개선에 반영하겠습니다.</p>
+        <section className="report-context"><span>문의한 질문</span><p>{question}</p></section>
+        <section className="report-field"><div className="report-field-heading"><label>문제 문장</label><span>{selectedQuotes.length}/5</span></div>
+          {selectedQuotes.length ? <div className="report-quote-list">{selectedQuotes.map((quote) => <blockquote key={`${quote.start_offset}-${quote.end_offset}`}><p>{quote.text}</p><button type="button" onClick={() => setSelectedQuotes((current) => current.filter((item) => item.start_offset !== quote.start_offset || item.end_offset !== quote.end_offset))} aria-label="선택 문장 제거">×</button></blockquote>)}</div> : <p className="report-empty-quote">선택한 문장이 없습니다. 답변 전체의 문제를 제보할 수 있습니다.</p>}
+        </section>
+        <fieldset className="report-field report-type-field"><legend>오류 유형 <small>복수 선택 가능</small></legend><div>{reportTypeOptions.map(([value, label]) => <label key={value} className={reportCategories.includes(value) ? "selected" : ""}><input type="checkbox" checked={reportCategories.includes(value)} onChange={() => toggleReportCategory(value)} />{label}</label>)}</div></fieldset>
+        <section className="report-field"><div className="report-field-heading"><label htmlFor="report-content">추가 설명</label><span>{reportContent.length}/2000</span></div><textarea id="report-content" value={reportContent} onChange={(event) => setReportContent(event.target.value)} maxLength="2000" placeholder={selectedQuotes.length ? "선택한 문장에서 어떤 점이 문제인지 알려 주세요. (선택 사항)" : "어떤 점이 문제인지 10자 이상 알려 주세요."} />{selectedQuotes.length > 0 && !reportCategories.includes("other") && <p className="report-helper">선택 문장이 있으면 추가 설명은 선택 사항입니다.</p>}</section>
+        {reportError && <p className="error">{reportError}</p>}
+        <footer className="report-panel-actions"><button type="button" className="report-cancel" onClick={closeReport}>취소</button><button className="primary">제보 등록</button></footer>
+      </form>
+    </aside>}
+    {reportNotice && <div className="report-toast" role="status">{reportNotice}<button type="button" onClick={() => setReportNotice("")} aria-label="알림 닫기">×</button></div>}
   </main>;
 }
