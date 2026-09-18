@@ -1,0 +1,17 @@
+.today-heritage { margin-top: 26px; border-top: 1px solid #dce4dd; padding-top: 22px; }
+.today-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.today-heading p { margin: 7px 0 0; font-size: 12px; line-height: 1.6; color: #69776f; }
+.today-pause { border: 0; background: transparent; color: #52736a; font-size: 11px; padding: 5px 0; white-space: nowrap; }
+.today-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.today-card { min-width: 0; border: 1px solid #dce4dd; border-radius: 12px; background: white; overflow: hidden; }
+.today-ask { display: block; width: 100%; text-align: left; padding: 0; background: transparent; color: #243d35; }
+.today-ask img { display: block; width: 100%; height: 130px; object-fit: contain; background: #f0f2ed; }
+.today-copy { display: grid; gap: 7px; padding: 13px; }
+.today-copy b { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.today-copy small, .today-copy > span { color: #69776f; font-size: 11px; }
+.today-credit { padding: 0 13px 13px; font-size: 10px; color: #69776f; line-height: 1.6; overflow-wrap: anywhere; }
+.today-credit p { margin: 4px 0; }
+.today-credit a { color: #285b48; text-underline-offset: 2px; }
+.today-credit details { margin-top: 7px; }
+.today-credit summary { cursor: pointer; }
+@media(max-width:760px) { .today-cards { grid-template-columns: 1fr; } .today-ask { display: grid; grid-template-columns: 105px minmax(0,1fr); align-items: center; } .today-ask img { height: 105px; } .today-credit { padding-top: 8px; } }
