@@ -1,0 +1,13 @@
+.evidence-sources { margin-top: 28px; padding-top: 22px; border-top: 1px solid #dce4dd; }
+.evidence-sources h2 { margin: 0; font-size: 19px; }
+.evidence-intro { margin: 8px 0 18px; color: #69776f; font-size: 13px; }
+.evidence-source-list { display: grid; gap: 18px; }
+.evidence-source + .evidence-source { padding-top: 18px; border-top: 1px solid #edf0e9; }
+.evidence-attribution { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 10px; font-size: 14px; line-height: 1.7; word-break: keep-all; overflow-wrap: anywhere; }
+.evidence-item-title { font-weight: 700; }
+.evidence-source a { color: #285b48; font-size: 13px; text-underline-offset: 3px; }
+.evidence-source details { margin-top: 12px; }
+.evidence-source summary { cursor: pointer; font-size: 13px; color: #527461; }
+.evidence-excerpt { margin: 12px 0 0; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.evidence-unavailable { color: #69776f; font-size: 12px; }
+.evidence-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }

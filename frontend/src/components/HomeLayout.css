@@ -1,0 +1,36 @@
+.home-layout { max-width: 1220px; margin: auto; padding: 38px; color: #243d35; }
+.home-layout-grid { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 26px; align-items: start; }
+.home-search-area { min-width: 0; padding-top: 8px; }
+.home-eyebrow { font-size: 11px; letter-spacing: 1.5px; font-weight: 800; color: #6b7f62; margin: 0 0 9px; }
+.home-layout h1 { font-size: 32px; line-height: 1.4; letter-spacing: -1.3px; margin: 0 0 12px; }
+.home-layout h2 { font-size: 19px; margin: 0; }
+.home-lead { font-size: 14px; color: #69776f; margin: 0 0 25px; line-height: 1.65; }
+.home-question-box { border: 1.5px solid #829d84; background: white; border-radius: 13px; box-shadow: 0 5px 16px #24453408; overflow: hidden; }
+.home-question-row { display: flex; gap: 12px; align-items: center; padding: 14px 16px; }
+.home-question-row input { min-width: 0; width: 100%; border: 0; color: inherit; padding: 8px 0; background: transparent; }
+.home-question-row .primary { border-radius: 9px; padding: 9px 14px; background: #285b48; }
+.home-levels { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 12px 16px; border-top: 1px solid #e7ebe5; font-size: 12px; }
+.home-levels > span { color: #69776f; margin-right: 6px; }
+.home-levels button { padding: 5px 11px; border: 1px solid transparent; border-radius: 9px; background: #f3f5ef; color: #243d35; }
+.home-levels button[aria-pressed=true] { background: #e1eada; border-color: #b9c9ad; color: #224d37; font-weight: bold; }
+.home-sidebar { min-width: 0; }
+.home-sidebar .history-heading { flex-wrap: wrap; gap: 2px; }
+.home-sidebar .history-heading button { font-size: 12px; padding: 4px 0; }
+.home-sidebar .search-history li button { flex-wrap: wrap; gap: 2px; font-size: 13px; }
+.home-sidebar .search-history li span { flex-basis: 100%; }
+.home-signin-history { border: 1px solid #dce4dd; border-radius: 13px; background: white; padding: 20px; }
+.home-signin-history p { font-size: 13px; color: #69776f; line-height: 1.7; margin: 12px 0; }
+.home-signin-history button { background: #edf3ea; color: #285b48; border-radius: 9px; padding: 9px 14px; }
+.home-layout button:hover { filter: brightness(.97); }
+.home-layout :is(button,input):focus-visible { outline: 3px solid #b88438; outline-offset: 3px; }
+@media(max-width:760px) {
+  .home-layout { padding: 25px 20px; }
+  .home-layout-grid { grid-template-columns: 1fr; gap: 23px; }
+  .home-layout h1 { font-size: 27px; }
+  .home-question-row { padding: 11px; gap: 6px; }
+  .home-question-row input { font-size: 13px; }
+  .home-question-row .primary { font-size: 12px; padding: 9px 11px; }
+  .home-levels { padding: 10px; gap: 5px; }
+  .home-levels > span { width: 100%; }
+  .home-levels button { font-size: 11px; padding: 5px 9px; }
+}
