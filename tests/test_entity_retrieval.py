@@ -131,3 +131,51 @@ def test_arbitrary_parentheses_do_not_bypass_compound_policy():
     request = {"question": "이순신 (경복궁, 창덕궁, 덕수궁을 설명해줘)",
                "retrieved_contexts": [context("a", "이순신")], "clarification_context": None}
     assert not rag_client._is_entity_choice_followup(request)
+
+
+def role_rows(title="세종"):
+    king = context("king", title)
+    king["content"] = "조선의 제4대(재위: 1418년~1450년) 왕."
+    general = context("general", title, 2)
+    general["content"] = "삼국시대 금관국의 후예로서 신라 중고기에 활약한 장군, 관료."
+    return [general, king]
+
+
+@pytest.mark.parametrize("question", ["세종 대왕", "세종대왕", "세종 대왕에 대해 알려줘", "세종 왕"])
+def test_explicit_ruler_role_selects_catalogue_king(question):
+    assert [r["document_id"] for r in prioritize_entities(question, role_rows())] == ["king"]
+
+
+def test_role_resolution_is_not_specific_to_sejong():
+    assert [r["document_id"] for r in prioritize_entities("태종 대왕", role_rows("태종"))] == ["king"]
+    assert [r["document_id"] for r in prioritize_entities("세종 장군", role_rows())] == ["general"]
+
+
+def test_qualified_person_precedes_generic_role_title():
+    vessel = context("vessel", "장군", kind="물품")
+    vessel["content"] = "물이나 술을 담는 그릇."
+    result = prioritize_entities("세종 장군", [vessel, *role_rows()])
+    assert result[0]["document_id"] == "general"
+
+
+@pytest.mark.parametrize("question", ["세종", "세종 대왕과 세종 장군 비교", "세종은 대왕이 아니야", "세종이 만난 왕"])
+def test_role_resolution_does_not_guess_for_unqualified_or_complex_requests(question):
+    assert len(prioritize_entities(question, role_rows())) == 2
+
+
+def test_unknown_occupation_and_two_kings_remain_ambiguous():
+    rows = role_rows()
+    unknown = context("unknown", "세종", 3)
+    unknown["content"] = "조선시대 왕을 보좌한 신하."
+    other_king = context("other-king", "세종", 4)
+    other_king["content"] = "다른 나라의 왕."
+    result = prioritize_entities("세종 대왕", [*rows, unknown, other_king])
+    assert {r["document_id"] for r in result} == {"king", "unknown", "other-king"}
+
+
+def test_body_mention_of_king_is_not_subject_occupation():
+    rows = role_rows()
+    body = context("general", "세종", 3, section="body")
+    body["content"] = "그가 섬긴 인물은 신라의 왕."
+    result = prioritize_entities("세종 대왕", [*rows, body])
+    assert [r["document_id"] for r in result] == ["king"]
