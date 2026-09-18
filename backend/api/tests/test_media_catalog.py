@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
+from unittest.mock import patch
 
-from api.media_catalog import MediaCatalog
+from api.media_catalog import MediaCatalog, _default_media_path
 
 
 class MediaCatalogTest(TestCase):
@@ -53,5 +54,34 @@ class MediaCatalogTest(TestCase):
     def test_missing_file_returns_empty_result(self):
         with TemporaryDirectory() as directory:
             result = MediaCatalog(Path(directory) / "missing.jsonl").get_many(["aks:E1"])
+
+        self.assertEqual(result, [])
+
+    def test_default_path_points_to_repository_processed_data(self):
+        expected = Path(__file__).resolve().parents[3] / "data" / "processed" / "aks_article_medias.jsonl"
+
+        with patch.dict("os.environ", {}, clear=True):
+            result = _default_media_path()
+
+        self.assertEqual(result, expected)
+
+    def test_unexpected_json_shape_is_ignored(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "media.jsonl"
+            path.write_text('["not", "an", "object"]\n', encoding="utf-8")
+
+            result = MediaCatalog(path).get_many(["aks:E1"])
+
+        self.assertEqual(result, [])
+
+    def test_file_read_error_returns_empty_result(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "media.jsonl"
+            path.write_text("{}\n", encoding="utf-8")
+            catalog = MediaCatalog(path)
+
+            with patch.object(Path, "open", side_effect=OSError("read failed")):
+                with self.assertLogs("api.media_catalog", level="WARNING"):
+                    result = catalog.get_many(["aks:E1"])
 
         self.assertEqual(result, [])

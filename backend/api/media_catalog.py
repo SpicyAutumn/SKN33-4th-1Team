@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from html import unescape
@@ -12,6 +13,7 @@ from typing import Any, Iterable
 
 
 KOGL_TYPES = {"KOGL1", "KOGL2", "KOGL3", "KOGL4"}
+logger = logging.getLogger(__name__)
 
 
 def _text(value: Any) -> str:
@@ -45,19 +47,24 @@ class MediaCatalog:
                 return self._offsets
             offsets: dict[str, int] = {}
             if self.available:
-                with self.path.open("rb") as stream:
-                    while True:
-                        offset = stream.tell()
-                        raw_line = stream.readline()
-                        if not raw_line:
-                            break
-                        try:
-                            row = json.loads(raw_line)
-                        except (UnicodeDecodeError, json.JSONDecodeError):
-                            continue
-                        document_id = row.get("document_id")
-                        if isinstance(document_id, str) and document_id:
-                            offsets[document_id] = offset
+                try:
+                    with self.path.open("rb") as stream:
+                        while True:
+                            offset = stream.tell()
+                            raw_line = stream.readline()
+                            if not raw_line:
+                                break
+                            try:
+                                row = json.loads(raw_line)
+                            except (UnicodeDecodeError, json.JSONDecodeError):
+                                continue
+                            if not isinstance(row, dict):
+                                continue
+                            document_id = row.get("document_id")
+                            if isinstance(document_id, str) and document_id:
+                                offsets[document_id] = offset
+                except OSError as error:
+                    logger.warning("미디어 카탈로그 색인을 읽지 못했습니다: %s", self.path, exc_info=error)
             self._offsets = offsets
             return offsets
 
@@ -101,19 +108,25 @@ class MediaCatalog:
             return []
         ordered_ids = list(dict.fromkeys(item for item in document_ids if item))
         results = []
-        with self.path.open("rb") as stream:
-            for document_id in ordered_ids:
-                offset = offsets.get(document_id)
-                if offset is None:
-                    continue
-                stream.seek(offset)
-                try:
-                    row = json.loads(stream.readline())
-                except (UnicodeDecodeError, json.JSONDecodeError):
-                    continue
-                cleaned = self._clean_row(row)
-                if cleaned is not None:
-                    results.append(cleaned)
+        try:
+            with self.path.open("rb") as stream:
+                for document_id in ordered_ids:
+                    offset = offsets.get(document_id)
+                    if offset is None:
+                        continue
+                    stream.seek(offset)
+                    try:
+                        row = json.loads(stream.readline())
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    cleaned = self._clean_row(row)
+                    if cleaned is not None:
+                        results.append(cleaned)
+        except OSError as error:
+            logger.warning("미디어 카탈로그 항목을 읽지 못했습니다: %s", self.path, exc_info=error)
+            return []
         return results
 
 

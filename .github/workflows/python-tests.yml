@@ -28,5 +28,10 @@ jobs:
       - name: Run unit tests
         run: python -m pytest -q
 
+      - name: Run backend media catalog tests
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/api/tests -p "test_*.py"
+
       - name: Run semantic verifier experiment tests (offline)
         run: python -X utf8 -B -m unittest discover -s experiments/semantic_verifier -p "test_*.py"
