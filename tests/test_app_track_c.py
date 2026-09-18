@@ -405,6 +405,22 @@ class HeritageGraphTest(unittest.TestCase):
         ]
         self.assertEqual(self.book.resolve(contexts, "거북선에 대해 알려줘").title, "거북선")
 
+    def test_network_root_comes_from_the_question_before_citations(self):
+        """청자 질문의 첫 근거가 개별 병이어도 네트워크는 청자 주제에서 시작한다."""
+        citation = self.book.find("청자병")
+        root = self.book.resolve_question("청자에 대해 알려줘", [citation.document_id])
+        self.assertEqual(root.title, "청자")
+
+    def test_concept_network_contains_related_heritage(self):
+        payload = heritage_graph.build_map("청자", neighbors=None)
+        related = next(branch for branch in payload["branches"] if branch["title"] == "관련 유물·유산")
+        self.assertTrue(related["nodes"])
+        self.assertNotIn("청자부", {node["title"] for node in related["nodes"]})
+        for node in related["nodes"]:
+            with self.subTest(title=node["title"]):
+                self.assertTrue(self.book.is_heritage(self.book.by_document[node["document_id"]]))
+                self.assertEqual(self.book.by_document[node["document_id"]].field, self.book.find("청자").field)
+
     def test_no_usable_context_gives_no_root(self):
         self.assertIsNone(self.book.resolve([{"document_id": "없음", "title": "없음"}], "질문"))
 
