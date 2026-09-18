@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any, Protocol
 
+from .entity_matching import prioritize_entities
+
 
 class Retriever(Protocol):
     def search(self, question: str, *, top_k: int = 5) -> list[dict[str, Any]]: ...
@@ -121,7 +123,7 @@ class HybridRetriever:
         """Fuse a precomputed dense result list without embedding the question again."""
         candidate_k = max(top_k, self.candidate_k)
         bm25_results = self.bm25_retriever.search(question, top_k=candidate_k)
-        return self.fuse_results(dense_results, bm25_results, top_k=top_k)
+        return self.fuse_results(dense_results, bm25_results, top_k=top_k, question=question)
 
     def fuse_results(
         self,
@@ -129,6 +131,7 @@ class HybridRetriever:
         bm25_results: list[dict[str, Any]],
         *,
         top_k: int = 5,
+        question: str | None = None,
     ) -> list[dict[str, Any]]:
         """Fuse candidates, then apply the configured per-document chunk limit."""
 
@@ -136,11 +139,14 @@ class HybridRetriever:
         fused_candidates = reciprocal_rank_fusion(
             dense_results,
             bm25_results,
-            top_k=candidate_k,
+            # Do not discard lexical-only exact names before entity promotion.
+            top_k=max(candidate_k, len(dense_results) + len(bm25_results)),
             rrf_k=self.rrf_k,
             dense_weight=self.dense_weight,
             bm25_weight=self.bm25_weight,
         )
+        if question:
+            fused_candidates = prioritize_entities(question, fused_candidates)
         return limit_chunks_per_document(
             fused_candidates,
             top_k=top_k,

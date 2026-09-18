@@ -555,6 +555,11 @@ class OllamaGenerator:
                     "context_ref": f"CTX-{index}",
                     "document_id": context.get("document_id"),
                     "title": context.get("title"),
+                    # Preserve catalogue identity evidence used during retrieval.
+                    # Without this, an alias-qualified query can be rejected even
+                    # after it has been resolved to the correct document.
+                    "aliases": context.get("metadata", {}).get("aliases", []),
+                    "primary_type": context.get("metadata", {}).get("primary_type"),
                     "content": context.get("content"),
                     "section": context.get("section"),
                     "retrieval_rank": context.get("retrieval_rank"),

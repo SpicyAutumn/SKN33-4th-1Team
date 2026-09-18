@@ -19,6 +19,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from rag_indexing.entity_matching import PERSON_ROLES, distinct_aliases
+
 REQUIRED_ENV = (
     "OPENAI_API_KEY",
     "PINECONE_API_KEY",
@@ -297,6 +299,7 @@ class EvidencePassthroughGenerator:
             "request_id": request["request_id"],
             "interaction_id": request["interaction_id"],
             "candidate_response_type": "needs_clarification",
+            "summary": "한 번에 하나씩 물어봐 주세요.",
             "draft_message": "한 번에 하나씩 물어봐 주세요.",
             "audience_level": request["audience_level"],
             "used_chunk_ids": [],
@@ -332,6 +335,7 @@ class EvidencePassthroughGenerator:
             "request_id": request["request_id"],
             "interaction_id": request["interaction_id"],
             "candidate_response_type": "answered",
+            "summary": message,
             "draft_message": message,
             "audience_level": request["audience_level"],
             "used_chunk_ids": [item["chunk_id"] for item in picked],
@@ -378,12 +382,41 @@ def ambiguous_reference_clarification(question: str) -> dict[str, Any] | None:
 def _is_generic_title_question(question: str, title: str) -> bool:
     """동명이인을 구분할 정보 없이 이름만 물었는지 보수적으로 판정한다."""
     escaped = re.escape(title)
+    roles = "|".join(re.escape(role) for role in PERSON_ROLES)
     patterns = (
+        rf"^\s*{escaped}(?:\s+(?:{roles}))?\s*[?.!]?\s*$",
+        rf"^\s*{escaped}(?:\s+(?:{roles}))?(?:은|는|이|가|에|에\s*대해)?\s*(?:알려줘|알려주세요|설명해줘|소개해줘|소개해주세요)\s*[?.!]?\s*$",
         rf"^\s*{escaped}(?:은|는|이|가)?\s*누구(?:야|인가요|니|입니까)?\s*[?.!]?\s*$",
         rf"^\s*{escaped}의?\s*주요\s*활동(?:은|이)?\s*(?:뭐|무엇)(?:야|인가요|입니까)?\s*[?.!]?\s*$",
         rf"^\s*{escaped}(?:은|는|이|가)?\s*어떤\s*(?:사람|인물)(?:이야|인가요|입니까)?\s*[?.!]?\s*$",
     )
     return any(re.match(pattern, question) for pattern in patterns)
+
+
+def _entity_option_label(context: dict[str, Any]) -> str:
+    title = str(context.get("title") or "").strip()
+    summary = " ".join(str(context.get("content") or "").split())
+    if len(summary) > 55:
+        summary = f"{summary[:55].rstrip()}…"
+    aliases = distinct_aliases(context)[:2]
+    identity = f"{title} ({', '.join(aliases)})" if aliases else title
+    return f"{identity} — {summary}" if summary else identity
+
+
+def _is_entity_choice_followup(request: dict[str, Any]) -> bool:
+    """Recognise the current UI's exact ``original question (option label)``.
+
+    Only a label reconstructed from retrieved evidence and a generic original
+    entity query qualify. Arbitrary parenthesised multi-question text does not.
+    """
+    question = str(request.get("question") or "").strip()
+    for context in request.get("retrieved_contexts") or []:
+        suffix = f" ({_entity_option_label(context)})"
+        if question.endswith(suffix) and _is_generic_title_question(
+            question[:-len(suffix)], str(context.get("title") or "")
+        ):
+            return True
+    return False
 
 
 def duplicate_title_clarification(request: dict[str, Any]) -> dict[str, Any] | None:
@@ -410,19 +443,16 @@ def duplicate_title_clarification(request: dict[str, Any]) -> dict[str, Any] | N
         )[:3]
         options = []
         for index, context in enumerate(ranked, start=1):
-            summary = " ".join(str(context.get("content") or "").split())
-            if len(summary) > 55:
-                summary = f"{summary[:55].rstrip()}…"
             options.append(
                 {
                     "id": f"entity-{index}",
-                    "label": f"{title} — {summary}" if summary else title,
+                    "label": _entity_option_label(context),
                     "source_chunk_ids": [str(context["chunk_id"])],
                 }
             )
         return {
             "reason_code": "ambiguous_entity",
-            "question": f"같은 이름의 항목이 여러 개입니다. 어느 {title}를 말씀하시나요?",
+            "question": f"'{title}' 항목이 여러 개입니다. 어떤 대상을 말씀하시나요?",
             "options": options,
         }
     return None
@@ -436,7 +466,7 @@ class CompoundAwareGenerator:
 
     def invoke(self, request: dict[str, Any]) -> dict[str, Any]:
         if request.get("clarification_context") is None:
-            if is_compound(request["question"]):
+            if is_compound(request["question"]) and not _is_entity_choice_followup(request):
                 return EvidencePassthroughGenerator()._clarification_result(request)
             clarification = ambiguous_reference_clarification(request["question"])
             if clarification is None:
@@ -444,6 +474,7 @@ class CompoundAwareGenerator:
             if clarification is not None:
                 result = EvidencePassthroughGenerator()._clarification_result(request)
                 result["draft_message"] = clarification["question"]
+                result["summary"] = clarification["question"]
                 result["clarification"] = clarification
                 result["generation_metadata"]["prompt_version"] = "deterministic-clarification-v1"
                 return result

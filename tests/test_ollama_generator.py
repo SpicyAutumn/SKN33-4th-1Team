@@ -46,6 +46,16 @@ def generation_request() -> dict:
 
 
 class OllamaGeneratorTest(unittest.TestCase):
+    def test_prompt_preserves_catalogue_identity_evidence(self) -> None:
+        request = deepcopy(generation_request())
+        request["retrieved_contexts"][0]["metadata"].update(
+            aliases=["무의(武毅)", "입부(立夫)"], primary_type="인물/전통 인물"
+        )
+        prompt = OllamaGenerator._request_prompt(request)
+        contexts = json.loads(prompt.split("[RETRIEVED_CONTEXTS]\n", 1)[1].split("\n[/RETRIEVED_CONTEXTS]", 1)[0])
+        assert contexts[0]["aliases"] == ["무의(武毅)", "입부(立夫)"]
+        assert contexts[0]["primary_type"] == "인물/전통 인물"
+
     def test_invokes_non_thinking_json_chat_and_assembles_contract(self) -> None:
         captured: dict = {}
 

@@ -223,6 +223,7 @@ class EvidenceCheckerTest(unittest.TestCase):
 
 class GeneratorContractTest(unittest.TestCase):
     REQUIRED = {
+        "summary",
         "schema_version",
         "request_id",
         "interaction_id",
