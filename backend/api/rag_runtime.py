@@ -8,6 +8,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from .media_catalog import media_for_citations
+
 
 class RagUnavailableError(RuntimeError):
     """필수 설정이나 RAG 의존성이 준비되지 않은 경우."""
@@ -53,4 +55,6 @@ def answer(question: str, *, audience_level: str) -> dict[str, Any]:
     response = execution.get("response") if isinstance(execution, dict) else None
     if not isinstance(response, dict):
         raise RagUnavailableError("RAG returned an invalid response.")
-    return {**response, "demo": False}
+    result = {**response, "demo": False}
+    result["media"] = media_for_citations(result.get("citations") or [])
+    return result
