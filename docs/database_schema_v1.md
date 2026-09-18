@@ -1,24 +1,12 @@
-# 4차 프로젝트 DB 스키마 v1 초안
+# 4차 프로젝트 DB 스키마 v1
 
 > 범위: 회원, 인증 세션, 개인 검색 기록, 답변 출처 스냅샷, 비공개 오류 제보
->
-> 현재 구현 기준: Django ORM + MySQL, `backend/api/migrations/0004_service_v1_mysql.py`
->
-> 참고 설계안: `db/schema_v1.sql` (PostgreSQL 문법이며 현재 서비스에 직접 적용하지 않음)
-
-## 0. 문서 상태
-
-| 구분 | 상태 |
-| :--- | :--- |
-| Django 모델·migration에 존재하는 테이블과 필드 | 현재 구현 |
-| PostgreSQL 전용 타입·체크 제약·부분 인덱스·복합 외래키 | 참고용 초안 |
-| 검색 기록의 `summary` 저장 | 추가 논의 필요(#15의 문장 처리 규칙과 함께 결정) |
-| DB 수준의 검색 기록·제보 소유자 일치 강제 | 향후 계획(현재는 API에서 검사) |
+> 참조 DDL: `db/schema_v1.sql` (현재 PostgreSQL 문법으로 작성한 초기안)
 
 ## 1. 저장 원칙
 
 - 관계형 서비스 DB와 검색 인덱스를 분리한다.
-- 관계형 DBMS는 회원·권한·검색 이력·제보처럼 트랜잭션과 소유권 검사가 필요한 데이터를 저장한다. 현재 서비스 DBMS는 MySQL이며 Django migration이 실제 스키마 기준이다.
+- 관계형 DBMS는 회원·권한·검색 이력·제보처럼 트랜잭션과 소유권 검사가 필요한 데이터를 저장한다. 현재 초기 DDL은 PostgreSQL을 가정했으며, 팀의 기술 선택에 따라 조정할 수 있다.
 - Pinecone은 Dense 검색용 벡터·청크 metadata, 로컬 SQLite FTS5는 BM25 검색 인덱스다. 둘은 서비스 회원 DB의 테이블이 아니다.
 - 검색 기록은 답변 당시의 결과를 스냅샷으로 보존한다. 이후 RAG 인덱스가 바뀌어도 오류 제보가 가리킨 답변을 확인할 수 있어야 한다.
 - 원시 비밀번호·세션 토큰, 내부 프롬프트, 전체 모델 원시 출력, API 키는 저장하지 않는다.
@@ -84,8 +72,6 @@ erDiagram
 
 `related_topics`는 현재 RAG 설정에서 비활성이고 회의 MVP도 아니므로 v1 DB에 별도 저장하지 않는다. 기능이 활성화되면 계약 버전과 함께 추가한다.
 
-새 검색 응답의 `summary`도 현재 별도 저장하지 않는다. 따라서 검색 기록 상세에서는 `message`와 출처 스냅샷만 재현한다. `summary` 열 추가 여부는 #15의 요약 규칙 확정 뒤 migration과 함께 결정한다.
-
 ### 3.4 `search_citations`
 
 검색 당시 사용자에게 제공한 출처만 순서대로 저장한다.
@@ -118,7 +104,7 @@ erDiagram
 | `handled_at` | timestamptz nullable | 처리 시각 |
 | `created_at`, `updated_at` | timestamptz | 생성·수정 시각 |
 
-PostgreSQL 참고 DDL은 `(search_record_id, owner_user_id)` 복합 외래키로 검색 기록과 제보의 소유자 일치를 보장하는 안을 담고 있다. 현재 Django·MySQL migration에는 이 복합 외래키가 없으며, API가 제보 생성·조회 시 `owner=current_user` 조건으로 검사한다. DB 수준 보장은 향후 migration에서 검토한다.
+`(search_record_id, owner_user_id)` 복합 외래키가 검색 기록과 제보의 소유자가 같은지 DB에서도 보장한다. 서비스 계층도 현재 사용자의 검색 기록인지 먼저 검사해 안전한 `404`를 반환해야 한다.
 
 ## 4. 조회와 권한 패턴
 
@@ -136,7 +122,7 @@ WHERE id = :report_id
   AND owner_user_id = :current_user_id;
 ```
 
-현재 Django migration의 목록 인덱스는 `(owner_id, created_at)`이다. `(owner_user_id, created_at DESC, id DESC)` 인덱스와 서명된 커서는 페이지네이션을 구현할 때 함께 검토한다.
+목록 인덱스는 `(owner_user_id, created_at DESC, id DESC)`를 사용한다. 커서에는 마지막 행의 `created_at`과 `id`를 서명하거나 불투명하게 인코딩해 사용자가 쿼리 조건을 조작하지 못하게 한다.
 
 ## 5. 트랜잭션 경계
 

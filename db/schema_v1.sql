@@ -1,7 +1,4 @@
--- 4차 프로젝트 MVP 서비스 DB 참고 스키마 초안 (PostgreSQL)
--- 현재 서비스는 Django ORM + MySQL을 사용하며 실제 스키마 기준은
--- backend/api/migrations/0004_service_v1_mysql.py 이다.
--- 이 파일은 PostgreSQL 설계 검토용이므로 현재 MySQL DB에 직접 적용하지 않는다.
+-- 4차 프로젝트 MVP 서비스 DB 초기 스키마 (PostgreSQL)
 -- 검색용 Pinecone 및 SQLite FTS5 인덱스는 이 스키마의 범위가 아니다.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

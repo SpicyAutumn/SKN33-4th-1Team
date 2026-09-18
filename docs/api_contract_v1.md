@@ -1,21 +1,4 @@
-# 4차 프로젝트 API 통신 규칙 v1 초안
-
-> 문서 상태: 구현 전 설계안을 현재 Django·MySQL MVP와 대조한 참고 문서다.
-> 아래에서 **현재 구현**으로 표시한 항목만 지금 사용할 수 있다. **향후 계획**은 구현되지 않았으며,
-> **추가 논의 필요**는 팀 합의와 계약 확정 전까지 클라이언트가 의존하면 안 된다.
-
-## 0. 현재 구현과 초안의 구분
-
-| 구분 | 상태 | 내용 |
-| :--- | :--- | :--- |
-| 서버·DB | 현재 구현 | Django API와 MySQL을 사용한다. Django migration이 실제 스키마의 기준이다. |
-| 인증·CSRF | 현재 구현 | 서버 세션 쿠키를 사용하며, 변경 요청 전에 `GET /auth/csrf`로 CSRF 쿠키를 발급받아 `X-CSRFToken` 헤더를 보낸다. |
-| 검색 | 현재 구현 | 새 검색 요청과 응답은 지원한다. 응답에는 RAG 결과의 `summary`가 포함될 수 있다. |
-| 개인 검색 기록·오류 제보 | 현재 구현 | 로그인 회원의 목록·상세 조회와 제보 등록을 지원하며 소유권은 API 쿼리에서 검사한다. |
-| 이어서 질문 | 향후 계획 | `interaction_id`, `clarification_context`는 RAG 계약에 있으나 현재 웹 API 요청에서 전달하지 않는다. |
-| 커서 페이지네이션 | 향후 계획 | 현재 목록은 `limit`만 적용하고 `next_cursor`는 항상 `null`이다. |
-| 핵심 요약 저장·문장 규칙 | 추가 논의 필요 | 새 검색 응답의 `summary`는 표시되지만 DB에 별도 저장하지 않아 기록 상세에서 재현되지 않는다. 문장 처리 규칙은 #15 결과와 함께 확정한다. |
-| PostgreSQL DDL | 참고용 초안 | `db/schema_v1.sql`은 설계 검토용이며 현재 MySQL에 직접 적용하지 않는다. |
+# 4차 프로젝트 API 통신 규칙 v1
 
 ## 1. 범위와 결정
 
@@ -40,7 +23,7 @@
 - 시각: UTC ISO 8601 문자열. 예: `2026-09-16T08:30:00Z`
 - ID: 서버가 생성한 UUID 문자열. RAG의 `request_id`, `interaction_id`, `chunk_id`는 기존 형식을 유지한다.
 - 목록 정렬: 기본 `created_at DESC, id DESC`
-- 페이지네이션: 현재 검색 기록 목록은 `limit`만 지원한다(기본 20, 최대 100). `cursor` 처리는 향후 계획이다.
+- 페이지네이션: `cursor`와 `limit`; `limit` 기본 20, 최대 100
 - 클라이언트는 `user_id`를 보내 권한을 주장하지 않는다. 서버가 인증 정보에서 현재 회원을 결정한다.
 - 비공개 자원은 목록과 상세 모두 서버에서 소유권을 검사한다.
 - 타인의 비공개 자원 ID로 접근하면 존재 여부를 숨기기 위해 `404 RESOURCE_NOT_FOUND`를 반환한다.
@@ -48,13 +31,7 @@
 
 ### 2.1 인증 기준
 
-브라우저 MVP는 서버 세션과 `HttpOnly`, `SameSite=Lax` 쿠키를 사용한다. 운영 환경에서는 `DJANGO_COOKIE_SECURE=true`로 `Secure`를 적용한다. 세션 ID는 DB에 원문으로 저장하지 않고 해시만 저장한다. 상태 변경 요청에는 CSRF 방어를 적용한다. 프론트엔드가 임의의 사용자 ID를 보내는 방식은 허용하지 않는다.
-
-현재 요청 순서는 다음과 같다.
-
-1. `GET /auth/csrf`를 호출해 `csrftoken` 쿠키를 발급·갱신한다.
-2. `POST` 요청은 쿠키를 포함하고 `X-CSRFToken: <csrftoken>` 헤더를 보낸다.
-3. CSRF 검증 실패는 Django의 기본 `403` 응답일 수 있어 아래 공통 오류 JSON과 형식이 다르다.
+브라우저 MVP는 서버 세션과 `HttpOnly`, `Secure`, `SameSite=Lax` 쿠키를 사용한다. 세션 ID는 DB에 원문으로 저장하지 않고 해시만 저장한다. 상태 변경 요청에는 CSRF 방어를 적용한다. 프론트엔드가 임의의 사용자 ID를 보내는 방식은 허용하지 않는다.
 
 ### 2.2 성공 응답
 
@@ -71,14 +48,12 @@
 
 ### 2.3 실패 응답
 
-아래 형식은 애플리케이션 뷰가 반환하는 현재 형식이다. 현재 구현에는 `request_id`가 없고,
-`details`도 필요한 검증 오류에서만 선택적으로 포함한다. Django가 뷰보다 먼저 반환하는 CSRF·메서드 오류는 이 형식을 따르지 않을 수 있다.
-
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "요청 값을 확인해 주세요.",
+    "request_id": "9be1ef27-5229-4c62-bbb2-6653a1e588f2",
     "details": [
       {"field": "question", "reason": "required"}
     ]
@@ -148,13 +123,16 @@
 ```json
 {
   "question": "경복궁은 왜 지어졌나요?",
-  "audience_level": "general"
+  "audience_level": "general",
+  "interaction_id": null,
+  "clarification_context": null
 }
 ```
 
 - `question`: 필수, 공백 제거 후 1~1000자
 - `audience_level`: `easy`, `general`, `advanced`
-- `interaction_id`, `clarification_context`: RAG 내부 계약에는 있으나 현재 웹 API 입력에서는 지원하지 않는다. 이어서 질문 기능을 구현할 때 추가한다.
+- `interaction_id`: 이어서 질문할 때만 이전 응답 값을 전달
+- `clarification_context`: 기존 `0.3.0-draft` 계약 형식을 그대로 사용
 
 응답 `200 OK`:
 
@@ -165,7 +143,6 @@
   "request_id": "REQ-a11c3f",
   "interaction_id": "INT-9cf21e",
   "response_type": "answered",
-  "summary": "조선 왕조의 법궁으로 세운 궁궐입니다.",
   "message": "경복궁은 조선 왕조의 법궁으로 지어졌습니다.",
   "audience_level": "general",
   "citations": [
@@ -188,8 +165,6 @@
 ```
 
 `search_record_id`는 로그인 상태에서 저장에 성공한 경우 UUID이고, 비회원 응답에서는 `null`이다. 기존 `ServiceResponse`의 나머지 필드는 이름과 의미를 바꾸지 않는다.
-
-`summary`는 현재 새 검색 응답에서 전달될 수 있고 화면의 핵심 요약에 사용한다. 다만 현재 `search_records`에는 별도 열이 없어 저장하지 않으며, 검색 기록 상세 응답에도 포함되지 않는다. 저장 여부와 문장 처리 규칙은 #15의 결정 뒤 계약과 migration을 함께 갱신한다.
 
 검색 기록에는 답변 당시의 질문·답변·응답 유형·출처 스냅샷을 저장한다. 원문 또는 RAG 인덱스가 나중에 바뀌어도 과거 답변과 오류 제보를 재현하기 위해서다. 전체 `retrieved_contexts`나 내부 모델 출력은 저장하지 않는다.
 
@@ -218,7 +193,7 @@
 
 ### 5.2 `GET /me/searches/{search_record_id}`
 
-저장된 질문·답변·출처 스냅샷을 반환한다. 새 검색 응답과 달리 최상위 `search_record_id`, `summary`, `response_type`에 따라 달라지는 일부 RAG 필드를 그대로 재현하지는 않는다. 식별자는 `id`로 반환하며 현재 사용자의 기록이 아니면 `404`다.
+`POST /searches` 성공 응답과 같은 상세 스냅샷을 반환한다. 현재 사용자의 기록이 아니면 `404`다.
 
 검색 기록 삭제·필터·이전 답변 비교는 회의 기준 후순위이므로 v1에 넣지 않는다.
 
@@ -279,24 +254,9 @@
 
 의미적 응답 유형은 HTTP 오류가 아니다. `insufficient_evidence`, `needs_clarification`, `safety_refusal`, `out_of_scope`도 서비스가 정상 판단한 결과이므로 `200`으로 반환한다.
 
-## 8. 현재 구현, 향후 계획, 추가 논의
+## 8. MVP 확정 사항과 남은 기술 선택
 
-### 현재 구현
-
-- Django·MySQL을 사용한다.
-- 비회원 검색을 허용하고, 개인 검색 기록과 오류 제보는 로그인 회원만 사용한다.
-- 인증은 서버 세션·보안 쿠키·CSRF 토큰 방식이다.
-- 목록 응답은 `next_cursor: null`이며 실제 커서 이동은 아직 지원하지 않는다.
-- 소유권은 API가 `owner=current_user` 조건으로 검사한다.
-
-### 향후 계획
-
-- 이어서 질문 입력 전달과 커서 페이지네이션
-- 담당자용 제보 조회·상태 변경 기능
-- 필요 시 현재 모델을 기준으로 한 MySQL DDL 문서화
-
-### 추가 논의 필요
-
-- `summary` 저장 여부와 검색 기록 상세 응답 형식
-- #15에서 검토 중인 핵심 요약 문장 처리 규칙
-- 보관 기간과 삭제·익명화 정책
+- 비회원 검색을 허용한다. 개인 검색 기록과 오류 제보는 로그인 회원만 사용한다.
+- 인증은 서버 세션과 보안 쿠키 방식으로 구현한다.
+- 담당자용 제보 조회·상태 변경 기능은 MVP에서 제외한다.
+- 실제 서버 구현을 시작하기 전에 API 프레임워크와 회원 데이터용 DBMS를 선택해야 한다. 현재 `db/schema_v1.sql`은 PostgreSQL 문법으로 작성된 초기안이다.
