@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 import unittest
 
 from rag_service.ollama_generator import (
@@ -394,6 +395,184 @@ class ChunkIdRepairTest(unittest.TestCase):
 
 
 class ResponseTypeNormalizationTest(unittest.TestCase):
+    def test_existing_correction_cleans_agreement_only_with_explicit_correction(self):
+        for response_type in ("answered", "insufficient_evidence", "corrected_premise"):
+            with self.subTest(response_type=response_type):
+                correction = {
+                    "original_premise": "2001년에 개관",
+                    "corrected_premise": "2002년에 개관",
+                    "source_chunk_ids": [CONTEXT["chunk_id"]],
+                }
+                output = {
+                    "candidate_response_type": response_type,
+                    "draft_message": "네, 맞습니다. 2001년이 아니라 2002년에 개관했습니다.",
+                    "used_chunk_ids": [CONTEXT["chunk_id"]],
+                    "clarification": None,
+                    "premise_correction": deepcopy(correction),
+                    "related_topic_candidates": [],
+                }
+                _normalize_corrected_premise(output, "가람 기록관은 2001년에 개관한 것이 맞지?")
+                self.assertEqual(output["draft_message"], "2001년이 아니라 2002년에 개관했습니다.")
+                self.assertEqual(output["candidate_response_type"], "corrected_premise")
+                self.assertEqual(output["premise_correction"], correction)
+                self.assertEqual(output["used_chunk_ids"], [CONTEXT["chunk_id"]])
+                once = deepcopy(output)
+                _normalize_corrected_premise(output, "가람 기록관은 2001년에 개관한 것이 맞지?")
+                self.assertEqual(output, once)
+
+    def test_normal_agreement_and_short_correction_are_preserved(self):
+        for has_detail in (False, True):
+            with self.subTest(has_detail=has_detail):
+                output = {
+                    "candidate_response_type": "corrected_premise" if has_detail else "answered",
+                    "draft_message": "2002년에 개관했습니다." if has_detail else "네, 맞습니다. 2002년에 개관했습니다.",
+                    "used_chunk_ids": [CONTEXT["chunk_id"]],
+                    "clarification": None,
+                    "premise_correction": {
+                        "original_premise": "2001년에 개관",
+                        "corrected_premise": "2002년에 개관",
+                        "source_chunk_ids": [CONTEXT["chunk_id"]],
+                    } if has_detail else None,
+                    "related_topic_candidates": [],
+                }
+                before = deepcopy(output)
+                year = "2001" if has_detail else "2002"
+                _normalize_corrected_premise(output, f"가람 기록관은 {year}년에 개관한 것이 맞지?")
+                self.assertEqual(output, before)
+
+    def test_additive_language_does_not_trigger_correction(self):
+        for phrase in ("뿐 아니라", "뿐만 아니라", "뿐만  아니라"):
+            for has_detail in (False, True):
+                with self.subTest(phrase=phrase, has_detail=has_detail):
+                    # 상세가 있는 입력은 의도적으로 모순된 필드의 방어 사례다.
+                    # 정상 서비스 응답은 has_detail=False인 경우다.
+                    message = f"네, 맞습니다. 기록관은 전시{phrase} 교육도 제공합니다."
+                    output = self._boundary_output(message, has_detail)
+                    before = deepcopy(output)
+                    _normalize_corrected_premise(output, "기록관은 전시를 제공하는 것이 맞지?")
+                    self.assertEqual(output, before)
+
+    def test_additive_other_categories_preserve_agreement(self):
+        for phrase in ("뿐 아니라", "뿐만 아니라"):
+            for category in ("인물", "장르", "분류"):
+                for has_detail in (False, True):
+                    with self.subTest(phrase=phrase, category=category, detail=has_detail):
+                        # 상세가 있는 경우는 모순된 필드를 넣은 방어 사례다.
+                        subject, question, predicate = {
+                            "인물": ("세종", "세종은 여러 정책을 추진한 것이 맞지?", "들도 여러 정책을 추진했습니다"),
+                            "장르": ("소설", "전시는 소설도 소개하는 것이 맞지?", "도 전시에서 소개합니다"),
+                            "분류": ("이 분류", "이 분류도 검색 가능한 것이 맞지?", "도 검색할 수 있습니다"),
+                        }[category]
+                        message = f"네, 맞습니다. {subject}{phrase} 다른 {category}{predicate}."
+                        output = self._boundary_output(message, has_detail)
+                        before = deepcopy(output)
+                        _normalize_corrected_premise(output, question)
+                        self.assertEqual(output, before)
+
+    def test_additive_other_categories_keep_separate_correction(self):
+        for category in ("인물", "장르", "분류"):
+            for separator in (". ", ", "):
+                for has_detail in (False, True):
+                    with self.subTest(category=category, separator=separator, detail=has_detail):
+                        body = f"전시뿐만 아니라 다른 {category}도 소개합니다{separator}2001년이 아니라 2002년에 개관했습니다."
+                        output = self._boundary_output("네, 맞습니다. " + body, has_detail)
+                        _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                        self.assertEqual(output["candidate_response_type"], "corrected_premise")
+                        self.assertEqual(output["draft_message"], body)
+
+    @staticmethod
+    def _boundary_output(message, has_detail):
+        return {
+            "candidate_response_type": "corrected_premise" if has_detail else "answered",
+            "draft_message": message,
+            "used_chunk_ids": [CONTEXT["chunk_id"]],
+            "clarification": None,
+            "premise_correction": {
+                "original_premise": "2001년에 개관",
+                "corrected_premise": "2002년에 개관",
+                "source_chunk_ids": [CONTEXT["chunk_id"]],
+            } if has_detail else None,
+            "related_topic_candidates": [],
+        }
+
+    def test_modified_additive_categories_preserve_agreement(self):
+        for joiner in ("뿐 아니라, ", "뿐만 아니라, ", "뿐만 아니라 또 ", "뿐만 아니라 조선의 "):
+            for category in ("인물", "장르", "분류"):
+                for has_detail in (False, True):
+                    with self.subTest(joiner=joiner, category=category, detail=has_detail):
+                        # 상세가 있는 입력은 모순된 상세를 넣은 방어 사례다.
+                        message = f"네, 맞습니다. 이 전시는 대표 사례{joiner}다른 {category}도 소개합니다."
+                        output = self._boundary_output(message, has_detail)
+                        before = deepcopy(output)
+                        _normalize_corrected_premise(output, "이 전시는 여러 사례를 소개하는 것이 맞지?")
+                        self.assertEqual(output, before)
+
+    def test_modified_addition_keeps_separate_correction(self):
+        for modifier in (", ", " 또 ", " 조선의 "):
+            for category in ("인물", "장르", "분류"):
+                for separator in (". ", ", "):
+                    for has_detail in (False, True):
+                        with self.subTest(modifier=modifier, category=category, separator=separator, detail=has_detail):
+                            body = f"전시는 대표 사례뿐만 아니라{modifier}다른 {category}도 소개합니다{separator}2001년이 아니라 2002년에 개관했습니다."
+                            output = self._boundary_output("네, 맞습니다. " + body, has_detail)
+                            _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                            self.assertEqual(output['candidate_response_type'], 'corrected_premise')
+                            self.assertEqual(output['draft_message'], body)
+
+    def test_other_category_requires_explicit_comparison(self):
+        for category in ("인물", "장르", "분류"):
+            for phrase, corrects in ((f"다른 {category}도 소개합니다.", False),
+                                     (f"질문의 대상과는 다른 {category}입니다.", True),
+                                     (f"질문의 대상과 다른 {category}입니다.", True)):
+                with self.subTest(phrase=phrase):
+                    output = self._boundary_output("네, 맞습니다. " + phrase, False)
+                    _normalize_corrected_premise(output, "이 설명이 맞지?")
+                    self.assertEqual(output['candidate_response_type'], 'corrected_premise' if corrects else 'answered')
+
+    def test_agreement_variants_cleaned_in_both_correction_paths(self):
+        for prefix in ("네, 맞습니다. ", "네. 맞습니다. ", "예, 맞습니다. ", "네, 맞습니다만 "):
+            for has_detail in (False, True):
+                with self.subTest(prefix=prefix, has_detail=has_detail):
+                    body = "2001년이 아니라 2002년에 개관했습니다."
+                    output = self._boundary_output(prefix + body, has_detail)
+                    _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                    self.assertEqual(output["draft_message"], body)
+                    once = deepcopy(output)
+                    _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                    self.assertEqual(output, once)
+
+    def test_agreement_variants_without_correction_are_unchanged(self):
+        for prefix in ("네. 맞습니다. ", "예, 맞습니다. ", "네, 맞습니다만 "):
+            with self.subTest(prefix=prefix):
+                output = self._boundary_output(prefix + "이용 시간은 따로 확인해 주세요.", False)
+                before = deepcopy(output)
+                _normalize_corrected_premise(output, "무료 이용이 맞지?")
+                self.assertEqual(output, before)
+
+    def test_additive_phrase_does_not_hide_separate_correction(self):
+        for has_detail in (False, True):
+            with self.subTest(has_detail=has_detail):
+                body = "2001년이 아니라 2002년에 개관했습니다. 전시뿐만 아니라 교육도 제공합니다."
+                output = self._boundary_output("네, 맞습니다. " + body, has_detail)
+                _normalize_corrected_premise(output, "2001년에 개관한 것이 맞지?")
+                self.assertEqual(output["draft_message"], body)
+
+    def test_non_answer_types_do_not_clean_message_even_with_correction_detail(self):
+        for response_type in ("safety_refusal", "out_of_scope", "needs_clarification"):
+            with self.subTest(response_type=response_type):
+                message = "네, 맞습니다. 2001년이 아니라 2002년입니다."
+                output = {
+                    "candidate_response_type": response_type,
+                    "draft_message": message,
+                    "used_chunk_ids": [],
+                    "clarification": None,
+                    "premise_correction": {"source_chunk_ids": [CONTEXT["chunk_id"]]},
+                }
+                _normalize_corrected_premise(output, "2001년이 맞지?")
+                self.assertEqual(output["draft_message"], message)
+                self.assertEqual(output["candidate_response_type"], response_type)
+                self.assertIsNone(output["premise_correction"])
+
     def test_answer_that_explicitly_corrects_assertion_becomes_corrected_premise(self):
         output = {
             "candidate_response_type": "answered",

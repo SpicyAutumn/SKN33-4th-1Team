@@ -299,14 +299,40 @@ _ASSERTION_QUESTION = re.compile(
     r"(?:맞(?:아|지|나요|습니까)|(?:단체|책|사건|작품|절기|시문집|경기체가)(?:이)?(?:지|야))\s*[?？]\s*$"
 )
 _CORRECTION_LANGUAGE = re.compile(
-    r"(?:아닙니다|아니며|아니라|아닌|잘못|사실과 다|다른 (?:장르|분류|인물)|분류되(?:지|지는) 않|"
+    r"(?:아닙니다|아니며|아니라|아닌|잘못|사실과 다|(?:와|과)(?:는)?\s+다른 (?:장르|분류|인물)|분류되(?:지|지는) 않|"
     r"질문에서 언급된.{0,80}(?:지만|와 달리))"
 )
 
 
+def _has_correction_language(message: str) -> bool:
+    """첨가 표현 '뿐(만) 아니라'는 교정 신호에서 제외한다. 원문은 보존한다."""
+    # '다른 인물/장르/분류'만으로는 교정이 아니다. 위 패턴에서
+    # 'A와(는)/과(는) 다른 ...'처럼 비교가 명시된 경우로 좁힌다.
+    # 첨가 접속어만 제외해 쉼표·수식어를 열거하지 않고, 별도 정정은 유지한다.
+    candidate = re.sub(
+        r"뿐(?:\s*만)?\s*아니라", " ", message
+    )
+    return bool(_CORRECTION_LANGUAGE.search(candidate))
+
+
 def _clean_correction_message(message: str) -> str:
     """뒤에서 전제를 고치면서 앞에서는 동의하는 모순된 시작을 제거한다."""
-    return re.sub(r"^\s*(?:네[,，]?\s*)?맞습니다[.!。]?\s*", "", message).strip()
+    return re.sub(
+        r"^\s*(?:(?:네|예)[,，.!。]?\s*)?맞습니다(?:만)?(?=\s|[.!。]|$)[.!。]?\s*",
+        "", message,
+    ).strip()
+
+
+def _clean_correction_summary(model_output: dict[str, Any]) -> None:
+    """최종 교정 답변에서 요약 자체에 정정 표현이 있을 때만 시작을 정리한다."""
+    if model_output.get("candidate_response_type") != "corrected_premise":
+        return
+    summary = model_output.get("summary")
+    if not isinstance(summary, str) or not _has_correction_language(summary):
+        return
+    cleaned = _clean_correction_message(summary)
+    if cleaned:
+        model_output["summary"] = cleaned
 
 
 def _first_sentence(message: str) -> str:
@@ -357,6 +383,11 @@ def _normalize_corrected_premise(model_output: dict[str, Any], question: str) ->
         # 경우가 있다. 상세 필드가 유효한 근거를 가리키면 교정 의도가 더 강한
         # 신호이므로 유형을 맞춘다.
         if response_type in {"answered", "insufficient_evidence", "corrected_premise"}:
+            # 교정 상세가 이미 있어도 본문의 잘못된 긍정 시작은 남을 수 있다.
+            # 명시적 교정 표현이 있는 본문만 기존 규칙으로 정리한다.
+            message = model_output.get("draft_message")
+            if isinstance(message, str) and _has_correction_language(message):
+                model_output["draft_message"] = _clean_correction_message(message)
             model_output["candidate_response_type"] = "corrected_premise"
             model_output["clarification"] = None
             return
@@ -376,7 +407,7 @@ def _normalize_corrected_premise(model_output: dict[str, Any], question: str) ->
     used_ids = model_output.get("used_chunk_ids")
     corrects_assertion = (
         _ASSERTION_QUESTION.search(question)
-        and _CORRECTION_LANGUAGE.search(message)
+        and _has_correction_language(message)
         and isinstance(used_ids, list)
         and bool(used_ids)
     )
@@ -477,6 +508,7 @@ class OllamaGenerator:
         # ID 검증 결과 교정 근거가 사라져 insufficient로 내려간 경우를 포함해
         # 최종 상세 필드 모양을 한 번 더 계약에 맞춘다.
         _normalize_corrected_premise(model_output, generation_request["question"])
+        _clean_correction_summary(model_output)
 
         prompt_tokens = self._non_negative_int(response.get("prompt_eval_count"))
         completion_tokens = self._non_negative_int(response.get("eval_count"))
