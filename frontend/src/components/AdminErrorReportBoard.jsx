@@ -38,7 +38,12 @@ export default function AdminErrorReportBoard({ api, onBack }) {
     try {
       const item = await api(`admin/error-reports/${encodeURIComponent(selectedId)}`, { method: "PATCH", body: JSON.stringify({ status, staff_reply: reply }) });
       setDetail({ item, loading: false, error: "" }); setSaveMessage("처리 내용이 저장되었습니다.");
-      setState((current) => ({ ...current, items: current.items.map((report) => report.id === item.id ? { ...report, status: item.status, updated_at: item.updated_at } : report) }));
+      try {
+        const refreshed = await api(`admin/error-reports?status=${filter}`);
+        setState({ items: refreshed.items || [], loading: false, error: "" });
+      } catch {
+        setSaveMessage("처리 내용은 저장되었지만 목록을 새로고침하지 못했습니다.");
+      }
     } catch (error) { setSaveMessage(error.message); }
     finally { setSaving(false); }
   };
