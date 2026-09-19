@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
+from django.db.models import Case, IntegerField, Value, When
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -20,6 +21,7 @@ SESSION_COOKIE = "heritage_session"
 SESSION_DAYS = 7
 LEVELS = {"easy", "general", "advanced"}
 REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "other"}
+REPORT_STATUSES = {"received", "reviewing", "completed"}
 
 
 def _payload(request):
@@ -57,6 +59,15 @@ def _require_session(request):
     session = _current_session(request)
     if session is None:
         return None, _error("AUTHENTICATION_REQUIRED", "로그인 후 이용할 수 있습니다.", 401)
+    return session, None
+
+
+def _require_admin(request):
+    session, error = _require_session(request)
+    if error:
+        return None, error
+    if session.user.role != "admin":
+        return None, _error("ADMIN_REQUIRED", "관리자만 이용할 수 있습니다.", 403)
     return session, None
 
 
@@ -262,7 +273,7 @@ def error_reports(request):
         return error
     if request.method == "GET":
         reports = ErrorReport.objects.filter(owner=session.user).select_related("search_record")[:20]
-        return JsonResponse({"items": [{"id": str(item.id), "search_record_id": str(item.search_record_id), "category": item.category, "status": item.status, "question_preview": item.search_record.question[:120], "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat()} for item in reports], "next_cursor": None})
+        return JsonResponse({"items": [{"id": str(item.id), "search_record_id": str(item.search_record_id), "category": item.category, "status": item.status, "question_preview": item.search_record.question[:120], "content_preview": item.content[:160], "created_at": item.created_at.isoformat(), "updated_at": item.updated_at.isoformat()} for item in reports], "next_cursor": None})
     payload = _payload(request)
     if payload is None:
         return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
@@ -285,4 +296,80 @@ def my_error_report_detail(request, report_id):
     report = ErrorReport.objects.filter(id=report_id, owner=session.user).select_related("search_record").first()
     if report is None:
         return _error("RESOURCE_NOT_FOUND", "오류 제보를 찾을 수 없습니다.", 404)
-    return JsonResponse({"id": str(report.id), "search_record_id": str(report.search_record_id), "category": report.category, "content": report.content, "status": report.status, "staff_reply": report.staff_reply, "question": report.search_record.question, "answer_preview": report.search_record.message[:160], "created_at": report.created_at.isoformat(), "updated_at": report.updated_at.isoformat()})
+    return JsonResponse({"id": str(report.id), "search_record_id": str(report.search_record_id), "category": report.category, "content": report.content, "status": report.status, "staff_reply": report.staff_reply, "question": report.search_record.question, "answer_preview": report.search_record.message[:160], "answer_text": report.search_record.message, "created_at": report.created_at.isoformat(), "updated_at": report.updated_at.isoformat()})
+
+
+def _admin_report_data(report, detail=False):
+    data = {
+        "id": str(report.id),
+        "category": report.category,
+        "content_preview": report.content[:160],
+        "status": report.status,
+        "question_preview": report.search_record.question[:120],
+        "reporter_name": report.owner.name,
+        "reporter_email": report.owner.email,
+        "created_at": report.created_at.isoformat(),
+        "updated_at": report.updated_at.isoformat(),
+    }
+    if detail:
+        data.update({
+            "search_record_id": str(report.search_record_id),
+            "question": report.search_record.question,
+            "content": report.content,
+            "answer_text": report.search_record.message,
+            "staff_reply": report.staff_reply or "",
+            "handled_by_name": report.handled_by.name if report.handled_by else None,
+            "handled_at": report.handled_at.isoformat() if report.handled_at else None,
+        })
+    return data
+
+
+@require_GET
+def admin_error_reports(request):
+    session, error = _require_admin(request)
+    if error:
+        return error
+    status = request.GET.get("status", "all")
+    if status != "all" and status not in REPORT_STATUSES:
+        return _error("VALIDATION_ERROR", "처리 상태를 확인해 주세요.", 422)
+    reports = ErrorReport.objects.select_related("owner", "search_record", "handled_by")
+    if status != "all":
+        reports = reports.filter(status=status).order_by("-created_at", "-id")
+    else:
+        reports = reports.annotate(
+            status_order=Case(
+                When(status="received", then=Value(0)),
+                When(status__in=["reviewing", "in_review"], then=Value(1)),
+                When(status__in=["completed", "resolved"], then=Value(2)),
+                default=Value(3),
+                output_field=IntegerField(),
+            )
+        ).order_by("status_order", "-created_at", "-id")
+    return JsonResponse({"items": [_admin_report_data(item) for item in reports[:100]]})
+
+
+@require_http_methods(["GET", "PATCH"])
+def admin_error_report_detail(request, report_id):
+    session, error = _require_admin(request)
+    if error:
+        return error
+    report = ErrorReport.objects.select_related("owner", "search_record", "handled_by").filter(id=report_id).first()
+    if report is None:
+        return _error("RESOURCE_NOT_FOUND", "오류 제보를 찾을 수 없습니다.", 404)
+    if request.method == "GET":
+        return JsonResponse(_admin_report_data(report, detail=True))
+    payload = _payload(request)
+    if payload is None:
+        return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
+    status = str(payload.get("status", ""))
+    staff_reply = str(payload.get("staff_reply", "")).strip()
+    if status not in REPORT_STATUSES or len(staff_reply) > 2000:
+        return _error("VALIDATION_ERROR", "처리 상태와 담당자 답변을 확인해 주세요.", 422)
+    if status == "completed" and len(staff_reply) < 10:
+        return _error("VALIDATION_ERROR", "처리 완료 시 담당자 답변을 10자 이상 입력해 주세요.", 422)
+    report.status = status
+    report.staff_reply = staff_reply or None
+    report.handled_by = session.user
+    report.handled_at = timezone.now()
+    report.save(update_fields=["status", "staff_reply", "handled_by", "handled_at", "updated_at"])
+    return JsonResponse(_admin_report_data(report, detail=True))
