@@ -79,6 +79,7 @@ def main() -> None:
     remote = f'''set -eu
 work=$(mktemp -d /tmp/heritage-integration.XXXXXX)
 trap 'rm -rf "$work"' EXIT
+chmod 755 "$work"
 printf '%s' '{server}' | base64 -d > "$work/server.py"
 printf '%s' '{bootstrap}' | base64 -d > "$work/bootstrap_db.py"
 chmod 644 "$work/server.py" "$work/bootstrap_db.py"
