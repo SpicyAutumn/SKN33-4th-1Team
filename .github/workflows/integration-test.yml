@@ -4,7 +4,7 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize, labeled, unlabeled, closed, ready_for_review, converted_to_draft]
   push:
-    branches: [main, codex/integration-test-deploy]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
