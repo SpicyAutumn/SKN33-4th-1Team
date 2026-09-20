@@ -52,7 +52,7 @@ IAM → 자격 증명 공급자에 다음 OIDC 공급자를 등록합니다(이�
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {"StringEquals": {
       "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-      "token.actions.githubusercontent.com:sub": "repo:SpicyAutumn/SKN33-4th-1Team:ref:refs/heads/main"
+      "token.actions.githubusercontent.com:sub": "repo:SpicyAutumn@285661806/SKN33-4th-1Team@1359779121:ref:refs/heads/main"
     }}
   }]
 }
@@ -82,6 +82,8 @@ IAM → 자격 증명 공급자에 다음 OIDC 공급자를 등록합니다(이�
 ```
 
 Run Command는 대상 서버에서 관리자 명령을 실행할 수 있으므로 main 병합 권한을 팀에서 관리해야 합니다.
+
+이 저장소는 이름뿐 아니라 소유자 ID와 저장소 ID를 포함하는 GitHub의 immutable OIDC subject 형식을 사용합니다. 실제 검증 실행에서 `sub`를 확인했습니다. 이름만 적은 구형 정책으로는 인증되지 않습니다. 임시 검증 브랜치는 위 값의 마지막 `main`만 `codex/main-auto-deploy`로 바꾼 값을 배열에 추가하고, 검증 후 제거합니다.
 
 ## 3. GitHub 저장소 변수 3개
 
