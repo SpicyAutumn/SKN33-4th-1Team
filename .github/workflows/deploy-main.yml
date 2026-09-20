@@ -70,12 +70,32 @@ jobs:
           count=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/python-tests.yml/runs?branch=main&event=push&status=success&head_sha=$DEPLOY_SHA" --jq '.total_count')
           (( count > 0 )) || { echo 'No successful main push test run for this commit.'; exit 1; }
 
+      - name: Show non-secret OIDC identity for trust-policy verification
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, urllib.parse, urllib.request
+          url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
+          url += ('&' if '?' in url else '?') + urllib.parse.urlencode({'audience': 'sts.amazonaws.com'})
+          request = urllib.request.Request(url, headers={
+              'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']
+          })
+          with urllib.request.urlopen(request, timeout=30) as response:
+              token = json.load(response)['value']
+          encoded = token.split('.')[1]
+          claims = json.loads(base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)))
+          # Never print the token or authorization headers, only public identity fields.
+          for name in ('iss', 'aud', 'sub'):
+              print(f'{name}: {claims.get(name)}')
+          PY
+
       - name: Authenticate to AWS using temporary credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-main-deploy
+          retry-max-attempts: 2
 
       - name: Send deployment to EC2 and wait for its result
         shell: bash
