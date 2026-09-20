@@ -6,7 +6,7 @@
 
 1. 개발 PR을 열고 기본 단위 테스트를 통과시킨다.
 2. 다른 PR과 함께 확인할 준비가 되면 PR에 `preview` 라벨을 붙인다. 초안 PR도 라벨이 있으면 포함된다.
-3. GitHub Actions의 **Common integration test**가 성공하면 해당 PR의 봇 댓글에서 공용 테스트 URL과 포함된 PR 목록을 확인한다.
+3. GitHub Actions의 **Common integration test**가 성공하면 실행 요약에서 공용 테스트 URL과 포함된 PR 목록을 확인한다.
 4. 문제가 있으면 `preview` 라벨을 제거한다. 해당 PR은 다음 통합 배포에서 제외된다.
 
 같은 라벨의 PR끼리 충돌하면 새 배포는 실패하고, 이전에 정상 배포된 테스트 사이트는 복구된다. 충돌을 해결하거나 라벨을 제거한 뒤 다시 실행한다.

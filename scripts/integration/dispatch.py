@@ -9,12 +9,10 @@ import re
 import subprocess
 import tempfile
 import time
-import urllib.error
 import urllib.parse
 import urllib.request
 
 
-MARKER = "<!-- heritage-integration-test -->"
 SHA = re.compile(r"[0-9a-f]{40}")
 INSTANCE = re.compile(r"i-[0-9a-f]+")
 
@@ -49,20 +47,6 @@ def aws(*args: str) -> dict:
     return json.loads(subprocess.check_output(["aws", "ssm", *args, "--output", "json"], text=True))
 
 
-def upsert_comment(number: int, body: str) -> None:
-    comment = None
-    for page in range(1, 11):
-        comments = github(f"/issues/{number}/comments?per_page=100&page={page}")
-        comment = next((item for item in comments if item.get("user", {}).get("login") == "github-actions[bot]"
-                        and item.get("body", "").startswith(MARKER)), None)
-        if comment or len(comments) < 100:
-            break
-    if comment:
-        github(f"/issues/comments/{comment['id']}", "PATCH", {"body": body})
-    else:
-        github(f"/issues/{number}/comments", "POST", {"body": body})
-
-
 def main() -> None:
     instance = os.environ["TEST_INSTANCE_ID"]
     production = os.environ.get("PRODUCTION_INSTANCE_ID", "")
@@ -76,8 +60,6 @@ def main() -> None:
     if not SHA.fullmatch(main_sha):
         raise RuntimeError("Could not resolve the current main commit")
     prs = selected_prs()
-    event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
-    changed_pr = event.get("number")
     payload = base64.b64encode(json.dumps({"main_sha": main_sha, "prs": prs}).encode()).decode()
     server = base64.b64encode(Path("scripts/integration/server.py").read_bytes()).decode()
     bootstrap = base64.b64encode(Path("scripts/integration/bootstrap_db.py").read_bytes()).decode()
@@ -125,19 +107,11 @@ sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
         url = record.get("url", test_url)
         if record["state"] == "ready":
             included = ", ".join(f"#{number}" for number in record["prs"])
-            message = (f"{MARKER}\n공용 통합 테스트 반영 완료: {url}\n\n"
+            message = (f"공용 통합 테스트 반영 완료: {url}\n\n"
                        f"포함 PR: {included}\n기준 main: `{record['main_sha'][:12]}`\n"
                        "이 사이트의 DB는 테스트 전용이며, 다음 통합 배포 때 초기화됩니다.")
-            for number in record["prs"]:
-                upsert_comment(number, message)
         else:
-            message = f"{MARKER}\n`preview` 라벨이 붙은 PR이 없어 공용 통합 테스트 사이트를 중지했습니다."
-        if isinstance(changed_pr, int) and changed_pr not in record.get("prs", []):
-            upsert_comment(
-                changed_pr,
-                f"{MARKER}\n이 PR은 현재 공용 통합 테스트 대상에서 제외되었습니다. "
-                "`preview` 라벨을 다시 붙이면 다음 통합 배포에 포함됩니다.",
-            )
+            message = "`preview` 라벨이 붙은 PR이 없어 공용 통합 테스트 사이트를 중지했습니다."
         Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(message + "\n", encoding="utf-8")
         print(message)
         return
