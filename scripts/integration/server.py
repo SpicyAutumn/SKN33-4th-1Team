@@ -17,6 +17,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 
 
@@ -180,7 +181,17 @@ def configure_release(release: Path, public_ip: str) -> None:
 
 def start_release(release: Path, public_ip: str) -> None:
     compose(release, "up", "-d", "--wait", "--wait-timeout", "240", "db")
-    compose(release, "run", "--rm", "--no-deps", "backend", "python", "/integration_bootstrap.py")
+    # mysqladmin can report healthy just before the application connection is
+    # accepted. Retry only this disposable-DB bootstrap rather than publishing a
+    # flaky failed deployment (or failing a rollback) on that small window.
+    for attempt in range(12):
+        try:
+            compose(release, "run", "--rm", "--no-deps", "backend", "python", "/integration_bootstrap.py")
+            break
+        except subprocess.CalledProcessError:
+            if attempt == 11:
+                raise
+            time.sleep(5)
     compose(release, "up", "-d", "--no-build", "--wait", "--wait-timeout", "180")
     for path in ("/", "/api/health"):
         request = urllib.request.Request(f"http://127.0.0.1{path}", headers={"Host": public_ip})
