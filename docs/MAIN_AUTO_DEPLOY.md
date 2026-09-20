@@ -2,6 +2,12 @@
 
 이 설정은 기존 앱 파일을 바꾸지 않고 GitHub Actions → AWS OIDC → Systems Manager Run Command → EC2 Docker Compose로 배포합니다. SSH 인바운드를 GitHub에 개방하거나 PEM 키, AWS 장기 액세스 키, `.env`를 GitHub에 등록할 필요가 없습니다.
 
+## 병합 전 임시 실배포 검증
+
+검증 기간에는 `codex/main-auto-deploy` 브랜치 push로도 워크플로를 실행합니다. IAM 신뢰 정책의 `sub`에 이 브랜치만 임시 추가해야 합니다. 브랜치에 있는 배포 스크립트로 **성공한 push 테스트가 있는 현재 main 코드**를 재배포합니다. 기능 브랜치의 앱 코드를 운영에 올리지는 않습니다. 기존 운영 컨테이너를 교체하므로 짧은 중단이 발생할 수 있습니다.
+
+성공하면 실행 URL과 결과를 기록하고, 임시 push 트리거 및 IAM의 검증 브랜치 허용을 제거한 뒤 PR을 검토합니다. 아래 main 전용 설명은 이 임시 검증 설정을 제거한 최종 운영 구성을 기준으로 합니다.
+
 ## 배포 조건과 범위
 
 - 기존 `Python tests` 워크플로의 **main push 테스트가 성공**하면 해당 커밋을 배포합니다.
