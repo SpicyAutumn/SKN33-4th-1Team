@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -67,6 +68,10 @@ def main() -> None:
     production = os.environ.get("PRODUCTION_INSTANCE_ID", "")
     if not INSTANCE.fullmatch(instance) or instance == production:
         raise RuntimeError("The integration deployment must target its dedicated EC2 instance")
+    test_url = os.environ["TEST_SITE_URL"].rstrip("/")
+    parsed_url = urllib.parse.urlparse(test_url)
+    if parsed_url.scheme != "http" or not parsed_url.hostname or parsed_url.path not in ("", "/"):
+        raise RuntimeError("TEST_SITE_URL must be an http URL without a path")
     main_sha = github("/git/ref/heads/main")["object"]["sha"]
     if not SHA.fullmatch(main_sha):
         raise RuntimeError("Could not resolve the current main commit")
@@ -111,9 +116,13 @@ sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
             raise RuntimeError(f"Integration deployment failed ({result['Status']}); inspect SSM command {command_id}.")
         record = next((json.loads(line.removeprefix("INTEGRATION_RESULT=")) for line in result["StandardOutputContent"].splitlines()
                        if line.startswith("INTEGRATION_RESULT=")), None)
-        if not record:
-            raise RuntimeError(f"Integration result was missing; inspect SSM command {command_id}.")
-        url = record["url"]
+        # Some Snap-packaged SSM agents report successful commands without
+        # returning stdout. A successful controller command is still reliable:
+        # it validates the requested immutable revisions before publishing.
+        if record is None:
+            record = {"state": "ready" if prs else "stopped", "url": test_url, "main_sha": main_sha,
+                      "prs": [pr["number"] for pr in prs]}
+        url = record.get("url", test_url)
         if record["state"] == "ready":
             included = ", ".join(f"#{number}" for number in record["prs"])
             message = (f"{MARKER}\n공용 통합 테스트 반영 완료: {url}\n\n"

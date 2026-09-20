@@ -39,11 +39,13 @@ jobs:
           TEST_INSTANCE_ID: ${{ vars.TEST_INSTANCE_ID }}
           PRODUCTION_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           TEST_DEPLOY_ROLE: ${{ vars.AWS_TEST_DEPLOY_ROLE_ARN }}
+          TEST_SITE_URL: ${{ vars.TEST_SITE_URL }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$TEST_INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]
           [[ "$TEST_INSTANCE_ID" != "$PRODUCTION_INSTANCE_ID" ]]
+          [[ "$TEST_SITE_URL" =~ ^http://[^/]+$ ]]
           [[ -n "$TEST_DEPLOY_ROLE" && -n "${{ vars.AWS_REGION }}" ]]
 
       - uses: aws-actions/configure-aws-credentials@v4
@@ -58,4 +60,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TEST_INSTANCE_ID: ${{ vars.TEST_INSTANCE_ID }}
           PRODUCTION_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          TEST_SITE_URL: ${{ vars.TEST_SITE_URL }}
         run: python3 scripts/integration/dispatch.py

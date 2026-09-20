@@ -27,6 +27,7 @@ GitHub Actions 변수:
 | `AWS_REGION` | `ap-northeast-2` |
 | `TEST_INSTANCE_ID` | 테스트 EC2 인스턴스 ID |
 | `AWS_TEST_DEPLOY_ROLE_ARN` | 테스트 전용 GitHub OIDC 역할 ARN |
+| `TEST_SITE_URL` | 테스트 사이트의 HTTP 주소 |
 | `INTEGRATION_TEST_ENABLED` | `true` |
 
 테스트 전용 OIDC 역할은 SSM `SendCommand`를 테스트 EC2 하나에만 허용해야 한다. 운영 배포 역할과 인스턴스 ID는 재사용하지 않는다.
