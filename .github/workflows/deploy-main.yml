@@ -1,0 +1,102 @@
+name: Deploy main to EC2
+
+on:
+  workflow_run:
+    workflows: [Python tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-main-ec2
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          persist-credentials: false
+
+      - name: Validate configuration and successful tests for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]
+          [[ -n "$AWS_REGION" && -n "$DEPLOY_ROLE" ]]
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          [[ "$latest" == "$DEPLOY_SHA" ]] || { echo 'main has moved; deploy its newest successful test run instead.'; exit 1; }
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/python-tests.yml/runs?branch=main&event=push&status=success&head_sha=$DEPLOY_SHA" --jq '.total_count')
+          (( count > 0 )) || { echo 'No successful main push test run for this commit.'; exit 1; }
+
+      - name: Authenticate to AWS using temporary credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-main-deploy
+
+      - name: Send deployment to EC2 and wait for its result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, json, os, pathlib
+          payload = base64.b64encode(pathlib.Path('scripts/deploy/ec2-main.sh').read_bytes()).decode()
+          sha = os.environ['DEPLOY_SHA']
+          command = f'''set -eu
+          script=$(mktemp /tmp/heritage-deploy.XXXXXX)
+          trap 'rm -f "$script"' EXIT
+          printf '%s' '{payload}' | base64 -d > "$script"
+          chmod 644 "$script"
+          sudo -u ubuntu -H bash "$script" '{sha}'
+          '''
+          pathlib.Path('/tmp/ssm-parameters.json').write_text(json.dumps({
+              'commands': [command], 'executionTimeout': ['2400']
+          }))
+          PY
+          command_id=$(aws ssm send-command --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript --timeout-seconds 120 \
+            --parameters file:///tmp/ssm-parameters.json \
+            --comment "Deploy main $DEPLOY_SHA" --query Command.CommandId --output text)
+          echo "SSM command: $command_id"
+          for attempt in $(seq 1 252); do
+            if ! aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "$INSTANCE_ID" > /tmp/ssm-result.json 2>/tmp/ssm-error; then
+              if grep -q InvocationDoesNotExist /tmp/ssm-error; then sleep 10; continue; fi
+              cat /tmp/ssm-error; exit 1
+            fi
+            status=$(jq -r .Status /tmp/ssm-result.json)
+            case "$status" in
+              Pending|InProgress|Delayed) sleep 10 ;;
+              Success) jq -r .StandardOutputContent /tmp/ssm-result.json; exit 0 ;;
+              *) jq -r '.Status, .StandardOutputContent, .StandardErrorContent' /tmp/ssm-result.json; exit 1 ;;
+            esac
+          done
+          echo "Polling timed out. Inspect SSM command $command_id before retrying."
+          exit 1
