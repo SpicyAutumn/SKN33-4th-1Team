@@ -2,11 +2,17 @@
 
 이 설정은 기존 앱 파일을 바꾸지 않고 GitHub Actions → AWS OIDC → Systems Manager Run Command → EC2 Docker Compose로 배포합니다. SSH 인바운드를 GitHub에 개방하거나 PEM 키, AWS 장기 액세스 키, `.env`를 GitHub에 등록할 필요가 없습니다.
 
-## 병합 전 임시 실배포 검증
+## 병합 전 실배포 검증 결과
 
-검증 기간에는 `codex/main-auto-deploy` 브랜치 push로도 워크플로를 실행합니다. IAM 신뢰 정책의 `sub`에 이 브랜치만 임시 추가해야 합니다. 브랜치에 있는 배포 스크립트로 **성공한 push 테스트가 있는 현재 main 코드**를 재배포합니다. 기능 브랜치의 앱 코드를 운영에 올리지는 않습니다. 기존 운영 컨테이너를 교체하므로 짧은 중단이 발생할 수 있습니다.
+2026-09-20에 작업 브랜치의 배포 스크립트로 테스트를 통과한 main `7ef670e7fcf7e41f7a00b2ddb5b3e36efe66c28e`를 실제 EC2에 재배포했습니다.
 
-성공하면 실행 URL과 결과를 기록하고, 임시 push 트리거 및 IAM의 검증 브랜치 허용을 제거한 뒤 PR을 검토합니다. 아래 main 전용 설명은 이 임시 검증 설정을 제거한 최종 운영 구성을 기준으로 합니다.
+- [GitHub Actions 실행 결과: 성공](https://github.com/SpicyAutumn/SKN33-4th-1Team/actions/runs/35516185247)
+- GitHub OIDC 인증, SSM 명령 전송, Docker 빌드, MySQL SELECT 1, 컨테이너 교체, 웹 및 API health 응답 검사 통과
+- SSM Command ID: `d5c4a3a7-ba0d-46ab-98f9-241ece6f87dc`
+- 실배포에 사용한 배포 스크립트는 그대로 유지하고, 검증 후 임시 브랜치 push 트리거를 제거했습니다.
+- IAM 신뢰 정책에서도 검증 브랜치 허용 항목을 제거하고 아래 main 전용 정책을 유지하세요.
+
+이는 실제 배포 경로 검증 결과입니다. main 병합에 의해 자동으로 이어지는 `workflow_run` 트리거는 병합 후 첫 실행에서 별도로 확인해야 합니다. 실제 장애를 강제로 발생시키는 운영 롤백 실험은 하지 않았고 실패 처리에는 모의 검증을 사용했습니다.
 
 ## 배포 조건과 범위
 
