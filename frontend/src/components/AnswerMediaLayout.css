@@ -1,0 +1,14 @@
+.answer-media-layout { display: grid; grid-template-columns: minmax(0,1fr); gap: 24px; }
+.answer-media-layout.has-media { grid-template-columns: minmax(220px,.8fr) minmax(0,1.4fr); align-items: start; }
+.answer-photo { margin: 0; min-width: 0; }
+.answer-photo > img { width: 100%; max-height: 360px; object-fit: contain; display: block; background: #f1f3ed; border-radius: 9px; }
+.answer-photo figcaption { font-size: 11px; line-height: 1.7; color: #69776f; margin-top: 12px; overflow-wrap: anywhere; }
+.answer-photo figcaption b { color: #285b48; font-size: 13px; }
+.answer-photo figcaption p { margin: 5px 0; }
+.answer-photo a { color: #285b48; }
+.answer-photo summary { cursor: pointer; margin-top: 9px; }
+.answer-photo nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; font-size: 12px; }
+.answer-photo nav button { background: #edf3ea; color: #285b48; border-radius: 8px; padding: 8px; }
+.answer-explanation { min-width: 0; overflow-wrap: anywhere; }
+.answer-explanation > .full-answer:first-child { margin-top: 0; }
+@media(max-width:760px) { .answer-media-layout.has-media { grid-template-columns: minmax(0,1fr); } .answer-photo > img { max-height: 250px; } }

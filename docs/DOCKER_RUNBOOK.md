@@ -25,6 +25,13 @@ MYSQL_DATABASE=
 DJANGO_SECRET_KEY=
 ```
 
+검색 결과에 공공누리 이미지를 표시하려면 팀 드라이브에서 받은
+`aks_article_medias.jsonl`을 `data/processed/aks_article_medias.jsonl`에 둔다.
+Docker Compose가 이 파일을 backend 컨테이너의
+`/data/aks_article_medias.jsonl`에 읽기 전용으로 연결한다. 파일이 없으면 텍스트
+검색은 계속 동작하지만 `/api/health`의 `media_catalog`이 `missing`으로 표시되고
+검색 응답의 `media`는 빈 배열이 된다.
+
 `MYSQL_DATABASE`가 빈 값이면 Django가 `django_project4`를 사용한다.
 
 외부 서버에 배포할 때는 `.env`의 `DJANGO_ALLOWED_HOSTS`에 실제 도메인을 쉼표로 구분해 추가한다.
@@ -52,8 +59,13 @@ docker compose logs -f
 docker compose down
 ```
 
-## 현재 제한과 다음 단계
+## 실제 RAG 검색 확인
 
-현재 `/api/chat`은 RAG를 호출하지 않는 시연 모드다. `.env`의 RAG 키가 있어도 Django API에서 `RagService`를 호출하도록 바꾸기 전까지는 실제 검색이 실행되지 않는다.
+현재 React는 `POST /api/v1/searches`를 호출하고 Django가 기존 `RagService`를
+실행한다. `.env`에 OpenAI·Pinecone·Ollama 설정이 있어야 실제 답변이 반환된다.
 
-`aks_bm25_v1.sqlite3`는 약 692MB이므로 Docker 이미지나 Git에 넣지 않는다. RAG 연결 후 배포 서버의 별도 경로에 두고 backend 컨테이너에 읽기 전용 볼륨으로 마운트한다.
+`aks_bm25_v1.sqlite3`는 약 692MB이므로 Docker 이미지나 Git에 넣지 않는다.
+정상 파일을 `data/processed/aks_bm25_v1.sqlite3`에 두면 Hybrid 검색을 사용한다.
+파일이 없으면 Pinecone Dense 검색으로 자동 전환되므로 실제 검색 자체는 확인할 수
+있다. 단, 같은 이름의 빈 폴더가 생겼다면 실제 SQLite 파일로 교체하기 전에 그 빈
+폴더를 제거해야 한다.
