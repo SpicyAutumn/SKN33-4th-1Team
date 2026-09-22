@@ -60,7 +60,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
         {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
       </div>
     </article>}
-    
+
   </div></section>;
 }
 
