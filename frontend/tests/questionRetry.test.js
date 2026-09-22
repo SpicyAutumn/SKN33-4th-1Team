@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRetryDraft, retryDraftReducer, retryRequest } from '../src/components/questionRetryState.js';
+import { levelChangeRequest } from '../src/clarificationFollowup.js';
 
 const result = { interaction_id: 'INT-1', clarification: { reason_code: 'ambiguous_entity', question: '어느 인물인가요?' } };
 const first = { id: 'first', label: '충무공 이순신', source_chunk_ids: ['chunk-1'] };
@@ -45,4 +46,17 @@ test('normal editing and invalid length do not send a followup', () => {
   assert.equal(retryRequest(createRetryDraft('  새 질문  ')), '새 질문');
   assert.equal(retryRequest(createRetryDraft('  ')), null);
   assert.equal(retryRequest(createRetryDraft('가'.repeat(1001))), null);
+});
+
+test('answer level change keeps the selected person and exact source IDs', () => {
+  const selected = retryRequest(select(createRetryDraft('이순신'), first));
+  const next = levelChangeRequest(selected, selected.question);
+  assert.equal(next.interaction_id, 'INT-1');
+  assert.deepEqual(next.selected_source_chunk_ids, ['chunk-1']);
+  assert.equal(next.clarification_context.original_question, '이순신 장군');
+});
+
+test('answer level change does not reuse a selection for another displayed question', () => {
+  const selected = retryRequest(select(createRetryDraft('이순신'), first));
+  assert.equal(levelChangeRequest(selected, '경복궁'), '경복궁');
 });

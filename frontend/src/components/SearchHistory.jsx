@@ -23,7 +23,7 @@ export default function SearchHistory({ api, refreshKey, onOpen, busy, expanded 
   }, [api, refreshKey, expanded, retry]);
   return <section className="search-history" aria-label="내 검색 기록">
     <div className="history-heading"><h2>{expanded ? '나의 검색 기록' : '내 검색 기록'}</h2>
-      {expanded ? <button type="button" onClick={onBack}>이전 화면</button> : <button type="button" onClick={onMore}>기록 더 보기</button>}
+      {expanded ? (onBack && <button type="button" onClick={onBack}>이전 화면</button>) : <button type="button" onClick={onMore}>기록 더 보기</button>}
     </div>
     <p className="history-caption">{expanded ? '최근 100건까지 표시합니다. 기록을 선택하면 저장 당시의 답변이 열립니다.' : '최근 5건 · 저장된 답변 다시 보기'}</p>
     {state.loading ? <p role="status">기록을 불러오고 있어요.</p> : state.error ? <div role="alert"><p>{state.error}</p><button type="button" onClick={() => setRetry((value) => value + 1)}>다시 시도</button></div> : state.items.length ? <ul>{state.items.map((item) => <li key={item.id}>

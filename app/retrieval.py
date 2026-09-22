@@ -42,25 +42,37 @@ class _FixedContextsRetriever:
 
 
 class _PinnedContextsRetriever:
-    """선택한 청크를 서버에서 다시 읽어 일반 검색 결과보다 먼저 제공한다."""
+    """선택한 청크를 다시 읽고 해당 문서 안에서만 본문 근거를 보충한다."""
 
     def __init__(self, retriever: Any, chunk_ids: list[str]) -> None:
         self.retriever = retriever
         self.chunk_ids = list(dict.fromkeys(chunk_ids))
 
     def search(self, question: str, *, top_k: int = 3) -> list[dict[str, Any]]:
+        if top_k < 1:
+            raise ValueError("top_k must be at least 1")
         fetch = getattr(self.retriever, "fetch_by_ids", None)
         if not callable(fetch):
             raise RuntimeError("retriever does not support selected source lookup")
         pinned = fetch(self.chunk_ids)
-        found_ids = {str(item.get("chunk_id") or "") for item in pinned}
-        if any(chunk_id not in found_ids for chunk_id in self.chunk_ids):
+        by_id = {str(item.get("chunk_id") or ""): item for item in pinned}
+        if any(chunk_id not in by_id for chunk_id in self.chunk_ids):
             raise RuntimeError("selected source chunk was not found")
-        searched = self.retriever.search(question, top_k=max(top_k, 3))
+        pinned = [by_id[chunk_id] for chunk_id in self.chunk_ids]
+        document_ids = list(dict.fromkeys(str(item.get("document_id") or "") for item in pinned))
+        if not document_ids or "" in document_ids:
+            raise RuntimeError("selected source document was not found")
+        scoped_search = getattr(self.retriever, "search_documents", None)
+        if callable(scoped_search):
+            searched = scoped_search(question, document_ids=document_ids, top_k=top_k)
+        else:
+            searched = self.retriever.search(question, top_k=max(top_k, 3))
         combined = [*pinned, *searched]
         selected: list[dict[str, Any]] = []
         seen: set[str] = set()
         for item in combined:
+            if str(item.get("document_id") or "") not in document_ids:
+                continue
             chunk_id = str(item.get("chunk_id") or "")
             if not chunk_id or chunk_id in seen:
                 continue

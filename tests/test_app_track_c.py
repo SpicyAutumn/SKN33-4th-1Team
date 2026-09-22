@@ -547,7 +547,7 @@ class RetrievalReuseTest(unittest.TestCase):
         self.assertIsNone(_reusable_contexts(last_result, "창덕궁이 뭐야?"))
         self.assertIsNone(_reusable_contexts(last_result, "경복궁이 뭐야?"))
 
-    def test_selected_source_is_pinned_before_new_search_results(self):
+    def test_selected_source_excludes_other_documents_from_new_search_results(self):
         class Retriever:
             def fetch_by_ids(self, chunk_ids):
                 return [context(chunk_id=chunk_ids[0], document_id="chosen", title="선택 인물")]
@@ -562,8 +562,8 @@ class RetrievalReuseTest(unittest.TestCase):
 
         results = retriever.search("선택한 인물을 알려줘", top_k=3)
 
-        self.assertEqual([item["chunk_id"] for item in results], ["chosen-id", "other"])
-        self.assertEqual([item["retrieval_rank"] for item in results], [1, 2])
+        self.assertEqual([item["chunk_id"] for item in results], ["chosen-id"])
+        self.assertEqual([item["retrieval_rank"] for item in results], [1])
 
     def test_missing_selected_source_fails_closed(self):
         class Retriever:

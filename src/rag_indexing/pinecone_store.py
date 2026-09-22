@@ -200,8 +200,27 @@ class PineconeRetriever:
         return {"uploaded": uploaded, "skipped_current": skipped, "total": len(batch)}
 
     def search(self, question: str, *, top_k: int = 5) -> list[dict[str, Any]]:
+        return self._search(question, top_k=top_k)
+
+    def search_documents(
+        self, question: str, *, document_ids: list[str], top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        """Retrieve body evidence only from explicitly selected documents."""
+        ids = list(dict.fromkeys(document_ids))
+        if not ids:
+            return []
+        return self._search(question, top_k=top_k, metadata_filter={
+            "document_id": {"$in": ids}, "section": {"$eq": "body"},
+        })
+
+    def _search(
+        self, question: str, *, top_k: int, metadata_filter: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         vector = self._embed([question])[0]
-        response = self._index.query(vector=vector, top_k=top_k, include_metadata=True, namespace=self.namespace)
+        options = {"filter": metadata_filter} if metadata_filter is not None else {}
+        response = self._index.query(
+            vector=vector, top_k=top_k, include_metadata=True, namespace=self.namespace, **options
+        )
         matches = getattr(response, "matches", None)
         if matches is None and isinstance(response, dict):
             matches = response.get("matches", [])

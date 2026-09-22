@@ -15,6 +15,7 @@ class NetworkApiTest(unittest.TestCase):
         self.factory = RequestFactory()
         network_runtime.build_network.cache_clear()
         network_runtime.build_network_for_question.cache_clear()
+        network_runtime._recommendations.cache_clear()
 
     def get(self, **query):
         return network_views.heritage_network(self.factory.get("/api/v1/heritage-network", query))

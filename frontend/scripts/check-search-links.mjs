@@ -11,12 +11,13 @@ const answers = new Map();
 let searches = 0;
 let shared = false;
 const errors = [];
-async function mock(context, owner) {
+async function mock(context, owner, member = false) {
   await context.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace("/api/v1/", "");
     const send = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "auth/csrf") return route.fulfill({ contentType: "application/json", headers: { "set-cookie": "csrftoken=test; Path=/" }, body: "{}" });
-    if (path === "auth/me") return send({}, 401);
+    if (path === "auth/me") return member ? send({ id: "member", name: "테스트", email: "test@example.com" }) : send({}, 401);
+    if (path === "me/searches" && member) return send({ items: [{ ...answers.get(first), id: first, created_at: "2026-09-22T00:00:00Z" }] });
     if (path === "searches") {
       searches++;
       const input = route.request().postDataJSON();
@@ -79,6 +80,23 @@ try {
   await page.waitForTimeout(900);
   assert.equal(new URL(page.url()).pathname, "/", "late answers must not navigate away from home");
   await page.getByRole("textbox", { name: "질문", exact: true }).waitFor();
+  const memberContext = await browser.newContext();
+  await mock(memberContext, true, true);
+  const memberPage = await memberContext.newPage();
+  memberPage.on("pageerror", error => errors.push(error.message));
+  await memberPage.goto(`${base}/mypage/searches`);
+  await memberPage.getByRole("button", { name: /경복궁은 왜 지어졌나요/ }).click();
+  await memberPage.waitForURL(`**/mypage/searches/${first}`);
+  await memberPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await memberPage.getByRole("button", { name: "링크 공유", exact: true }).waitFor();
+  await memberPage.reload();
+  await memberPage.getByText("요약 1", { exact: true }).waitFor();
+  await memberPage.goBack();
+  await memberPage.getByRole("heading", { name: "나의 검색 기록", exact: true }).waitFor();
+  await memberPage.goForward();
+  await memberPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await memberPage.getByRole("button", { name: "← 나의 검색기록으로 돌아가기", exact: true }).click();
+  await memberPage.getByRole("heading", { name: "나의 검색 기록", exact: true }).waitFor();
   assert.deepEqual(errors, []);
-  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links and stale response cancellation");
+  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links stale response cancellation and mypage history/refresh/navigation");
 } finally { await browser.close(); }

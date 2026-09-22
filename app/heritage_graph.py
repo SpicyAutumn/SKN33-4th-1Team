@@ -115,7 +115,7 @@ def top_level(value: str) -> str:
 class Entry:
     """만든 목록의 문화유산 한 건."""
 
-    __slots__ = ("document_id", "eid", "title", "field", "item_type", "period", "source_url")
+    __slots__ = ("document_id", "eid", "title", "field", "item_type", "period", "source_url", "keywords")
 
     def __init__(self, row: dict[str, str]) -> None:
         self.document_id = _clean(row.get("document_id"))
@@ -125,6 +125,7 @@ class Entry:
         self.item_type = _clean(row.get("item_type"))
         self.period = _clean(row.get("period"))
         self.source_url = _clean(row.get("source_url"))
+        self.keywords = tuple(value.strip() for value in _clean(row.get("keywords")).split(";") if value.strip())
 
     @property
     def region(self) -> str:
