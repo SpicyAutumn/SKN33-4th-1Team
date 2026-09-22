@@ -137,6 +137,12 @@ class BM25Retriever:
         terms = tokenize_korean(question)
         if not terms:
             return []
+        # Korean compound nouns are commonly entered with or without spaces
+        # (for example ``수원화성`` vs. the indexed title ``수원 화성``).
+        # The deployed V1 index only stores the original exact term, so make
+        # this compatibility lookup at query time rather than requiring every
+        # server to rebuild its index.
+        compact_question = (_exact_lookup_term(question) or "").replace(" ", "")
         # All generated terms are limited to Korean/Latin letters and digits.
         match_expression = " OR ".join(f"{term}*" for term in terms)
         with sqlite3.connect(self.database_path) as connection:
@@ -147,13 +153,14 @@ class BM25Retriever:
                 FROM exact_terms
                 JOIN chunk_records AS records ON records.chunk_id = exact_terms.chunk_id
                 WHERE exact_terms.term IN ({','.join('?' for _ in terms)})
+                   OR replace(exact_terms.term, ' ', '') = ?
                 GROUP BY records.chunk_id
                 ORDER BY MIN(CASE exact_terms.match_kind WHEN 'title' THEN 0 ELSE 1 END),
                          CASE records.section WHEN 'definition' THEN 0 ELSE 1 END,
                          records.chunk_id
                 LIMIT ?
                 """,
-                (*terms, top_k),
+                (*terms, compact_question, top_k),
             ).fetchall()
             lexical_rows = connection.execute(
                 """
