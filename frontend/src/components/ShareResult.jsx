@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import "./ShareResult.css";
-import { copyShareLink } from "./copyShareLink";
 
 export default function ShareResult({ result, request }) {
   const [url, setUrl] = useState(result.share_path ? new URL(result.share_path, window.location.origin).href : "");
@@ -13,20 +12,14 @@ export default function ShareResult({ result, request }) {
   }, [message]);
   const share = async () => {
     setBusy(true); setMessage("");
-    let link = url;
     try {
+      let link = url;
       if (!link) {
         const { share_path: path } = await request(`searches/${result.search_result_id}/share`, { method: "POST" });
         link = new URL(path, window.location.origin).href;
         setUrl(link);
       }
-    } catch (error) {
-      setMessage(error.message || "공유 링크를 만들지 못했습니다. 다시 시도해 주세요.");
-      setBusy(false);
-      return;
-    }
-    try {
-      await copyShareLink(link);
+      await navigator.clipboard.writeText(link);
       setMessage("복사되었습니다");
     } catch {
       setMessage("복사하지 못했습니다. 다시 시도해 주세요.");

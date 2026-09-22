@@ -74,38 +74,6 @@ try {
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), `${base}/share/${token}`);
   assert.equal(await page.getByRole("textbox", { name: "공유 주소", exact: true }).count(), 0);
   await page.getByText("복사되었습니다", { exact: true }).waitFor({ state: "hidden" });
-  // Exercise the real non-secure HTTP origin, not a granted clipboard mock.
-  const insecureContext = await browser.newContext();
-  await mock(insecureContext, true);
-  await insecureContext.route("http://heritage.test/**", async route => {
-    const target = new URL(route.request().url());
-    if (target.pathname.startsWith("/api/")) return route.fallback();
-    const response = await route.fetch({ url: `${base}${target.pathname}${target.search}` });
-    return route.fulfill({ response });
-  });
-  const insecurePage = await insecureContext.newPage();
-  insecurePage.on("pageerror", error => errors.push(error.message));
-  await insecurePage.goto(`http://heritage.test/search/${first}`);
-  assert.equal(await insecurePage.evaluate(() => window.isSecureContext), false);
-  assert.equal(await insecurePage.evaluate(() => Boolean(navigator.clipboard)), false);
-  await insecurePage.getByRole("button", { name: "공유하기", exact: true }).click();
-  await insecurePage.getByText("복사되었습니다", { exact: true }).waitFor();
-  await page.bringToFront();
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), `http://heritage.test/share/${token}`);
-  assert.equal(await insecurePage.locator("textarea").count(), 0, "temporary copy field must be removed");
-  await insecurePage.bringToFront();
-  await insecurePage.evaluate(() => { document.execCommand = () => false; });
-  await insecurePage.getByRole("button", { name: "공유하기", exact: true }).click();
-  await insecurePage.getByText("복사하지 못했습니다. 다시 시도해 주세요.", { exact: true }).waitFor();
-  assert.equal(await insecurePage.getByText("복사되었습니다", { exact: true }).count(), 0);
-  await insecurePage.reload();
-  await insecurePage.route(`**/api/v1/searches/${first}/share`, route => route.fulfill({
-    status: 503, contentType: "application/json", body: JSON.stringify({ error: { message: "공유 링크 생성 서버 오류" } }),
-  }));
-  await insecurePage.getByRole("button", { name: "공유하기", exact: true }).click();
-  await insecurePage.getByText("공유 링크 생성 서버 오류", { exact: true }).waitFor();
-  assert.equal(await insecurePage.getByText("복사되었습니다", { exact: true }).count(), 0);
-  await insecureContext.close();
   const visitor = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await mock(visitor, false);
   const publicPage = await visitor.newPage();
@@ -177,5 +145,5 @@ try {
   assert.equal(new URL(adminPage.url()).pathname, "/admin/searches");
   assert.equal(searches, searchCountBeforeAdmin, "admin review must not generate answers");
   assert.deepEqual(errors, []);
-  console.log("PASS: HTTPS/HTTP clipboard copy, rejected copy and share API errors, search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links stale response cancellation mypage history/refresh/navigation, admin read-only/detail/pagination navigation and legal modal");
+  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links stale response cancellation mypage history/refresh/navigation, admin read-only/detail/pagination navigation and legal modal");
 } finally { await browser.close(); }
