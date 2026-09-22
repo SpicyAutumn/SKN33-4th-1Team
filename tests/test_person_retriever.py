@@ -189,7 +189,7 @@ def test_invalid_selection_does_not_guess_or_send_mixed_people_to_model(store):
 @pytest.mark.parametrize("mode", ["hybrid", "dense"])
 @pytest.mark.parametrize("document_id", ["admiral", "homonym"])
 def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode, document_id):
-    """A UI selection must reach generation through the deployed retriever wrappers."""
+    """A UI selection must reach generation through the real retriever wrappers."""
     chosen = next(c for c in store.definitions("이순신") if c["document_id"] == document_id)
     dense = Mock()
     dense.search.return_value = [deepcopy(chosen)]
