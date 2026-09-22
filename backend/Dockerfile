@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 COPY app/ /workspace/app/
 COPY src/ /workspace/src/
+COPY data/manifest.csv /workspace/data/manifest.csv
 
 EXPOSE 8000
 
