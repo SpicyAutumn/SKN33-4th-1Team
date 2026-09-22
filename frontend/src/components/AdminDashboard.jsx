@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import "./AdminDashboard.css";
+import "./AdminDashboardSearchLinks.css";
 
 const statusLabels = { received: "접수됨", reviewing: "확인 중", completed: "처리 완료" };
 const levelLabels = { easy: "초등학생", general: "중·고등학생", advanced: "성인 일반" };
 const dateLabel = (value) => new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" }).format(new Date(value));
 
-export default function AdminDashboard({ api, onBack, onOpenUsers, onOpenReports, onOpenSearches }) {
+export default function AdminDashboard({ api, onBack, onOpenUsers, onOpenReports, onOpenSearches, onOpenSearchDetail }) {
   const [state, setState] = useState({ data: null, loading: true, error: "" });
   const [retry, setRetry] = useState(0);
 
@@ -34,7 +35,7 @@ export default function AdminDashboard({ api, onBack, onOpenUsers, onOpenReports
     <section className="dashboard-grid">
       <article className="dashboard-card dashboard-reports"><header><div><p>오류 제보</p><h2>최근 접수된 제보</h2></div><button type="button" onClick={onOpenReports}>전체 관리 →</button></header>{reports.length ? <ul>{reports.map((item) => <li key={item.id}><span className={`dashboard-status status-${item.status}`}>{statusLabels[item.status] || item.status}</span><div><strong>{item.question_preview}</strong><small>{item.reporter_name} · {dateLabel(item.created_at)}</small></div></li>)}</ul> : <p className="dashboard-empty">등록된 오류 제보가 없습니다.</p>}</article>
       <article className="dashboard-card"><header><div><p>사용자 접속</p><h2>최근 접속한 사용자</h2></div><button type="button" onClick={onOpenUsers}>전체 보기 →</button></header>{users.length ? <ul>{users.map((item) => <li key={item.id}><span className="dashboard-avatar">{item.name.slice(0, 1)}</span><div><strong>{item.name}</strong><small>{item.email}</small></div><time>{dateLabel(item.last_seen_at)}</time></li>)}</ul> : <p className="dashboard-empty">최근 접속 기록이 없습니다.</p>}</article>
-      <article className="dashboard-card dashboard-searches"><header><div><p>검색 기록</p><h2>최근 검색</h2></div><button type="button" onClick={onOpenSearches}>전체 보기 →</button></header>{searches.length ? <ul>{searches.map((item) => <li key={item.id}><div><strong>{item.question}</strong><small>{item.user_name} · {levelLabels[item.audience_level] || item.audience_level}</small></div><time>{dateLabel(item.created_at)}</time></li>)}</ul> : <p className="dashboard-empty">저장된 검색 기록이 없습니다.</p>}</article>
+      <article className="dashboard-card dashboard-searches"><header><div><p>검색 기록</p><h2>최근 검색</h2></div><button type="button" onClick={onOpenSearches}>전체 보기 →</button></header>{searches.length ? <ul>{searches.map((item) => <li key={item.id}><button type="button" onClick={() => onOpenSearchDetail(item.id)}><div><strong>{item.question}</strong><small>{item.user_name} · {levelLabels[item.audience_level] || item.audience_level}</small></div><time>{dateLabel(item.created_at)}</time></button></li>)}</ul> : <p className="dashboard-empty">저장된 검색 기록이 없습니다.</p>}</article>
     </section>
   </div></section>;
 }
