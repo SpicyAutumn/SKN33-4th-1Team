@@ -170,7 +170,15 @@ class RagService:
                 )
 
         try:
-            contexts = self.retriever.search(question, top_k=self.config.top_k)
+            # Resolve a previously offered entity choice before fetching body
+            # chunks when supported; other retrievers keep their existing API.
+            clarify_search = getattr(self.retriever, "search_with_clarification", None)
+            if clarification_context is not None and callable(clarify_search):
+                contexts = clarify_search(
+                    question, clarification_context=clarification_context, top_k=self.config.top_k
+                )
+            else:
+                contexts = self.retriever.search(question, top_k=self.config.top_k)
         except Exception as exc:
             raise RagServiceError("upstream_error", "retrieval call failed") from exc
         self._validate_contexts(contexts)

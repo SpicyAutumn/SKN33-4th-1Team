@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import AnswerContent from "./components/AnswerContent.jsx";
 import ErrorReportPanel from "./components/ErrorReportPanel";
 import HeritageLoading from "./components/HeritageLoading";
 import AnswerMediaLayout from "./components/AnswerMediaLayout";
@@ -53,7 +54,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
-      <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}>{(!result.savedRecord || result.summary) && <section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section>}<p ref={answerText} className="full-answer">{result.message}</p>
+      <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}><AnswerContent result={result} answerRef={answerText} />
         {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
         </AnswerMediaLayout>
         <div className={`answer-support${citations.length ? "" : " no-evidence"}`}><EvidenceSources citations={citations} />{result && !result.error && !loading && result.response_type !== "needs_clarification" && <HeritageNetwork answerKey={result.request_id || result.search_record_id || question + level} question={question} citations={citations} onAsk={onAsk} />}</div>
