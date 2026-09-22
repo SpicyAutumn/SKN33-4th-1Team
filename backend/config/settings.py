@@ -80,5 +80,8 @@ USE_TZ = True
 STATIC_URL = "static/"
 SESSION_COOKIE_SECURE = os.getenv("DJANGO_COOKIE_SECURE", "false").lower() == "true"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+# Enable only behind the trusted Nginx that overwrites X-Forwarded-Proto.
+if os.getenv("DJANGO_TRUST_PROXY_SSL", "false").lower() == "true":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_COOKIE_SAMESITE = "Lax"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
