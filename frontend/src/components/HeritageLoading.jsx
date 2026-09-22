@@ -35,7 +35,7 @@ export default function HeritageLoading() {
     const timer = window.setInterval(() => {
       if (paused || document.hidden || motion.matches || !area.current || area.current.matches(':hover') || area.current.contains(document.activeElement) || area.current.querySelector('details[open]')) return;
       advance();
-    }, 7000);
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [paused]);
   const photo = tour.deck[tour.index];
