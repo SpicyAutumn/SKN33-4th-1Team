@@ -1,0 +1,2 @@
+# Match the deployed Django version; offline unit tests do not need mysqlclient.
+Django==5.2.17

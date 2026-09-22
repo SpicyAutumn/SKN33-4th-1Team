@@ -2,7 +2,7 @@ import json
 import os
 from unittest.mock import patch
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.test_settings")
 
 import django
 
