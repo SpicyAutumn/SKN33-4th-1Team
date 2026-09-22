@@ -184,3 +184,33 @@ def test_invalid_selection_does_not_guess_or_send_mixed_people_to_model(store):
     result = service.answer("이순신 장군", clarification_context=followup("알아서 골라줘"))
     assert result["response_type"] == "insufficient_evidence"
     delegate.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("mode", ["hybrid", "dense"])
+@pytest.mark.parametrize("document_id", ["admiral", "homonym"])
+def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode, document_id):
+    """A UI selection must reach generation through the deployed retriever wrappers."""
+    chosen = next(c for c in store.definitions("이순신") if c["document_id"] == document_id)
+    dense = Mock()
+    dense.search.return_value = [deepcopy(chosen)]
+    dense.fetch_by_ids.return_value = [deepcopy(chosen)]
+    monkeypatch.setattr("rag_indexing.pinecone_store.PineconeRetriever", lambda: dense)
+    path = store.database_path if mode == "hybrid" else store.database_path.with_name("absent.sqlite3")
+    monkeypatch.setattr(rag_client, "bm25_index_path", lambda: path)
+    monkeypatch.setattr(rag_client, "missing_env", lambda: [])
+    generator = Mock(wraps=AnswerGenerator())
+    monkeypatch.setattr("rag_service.ollama_generator.OllamaGenerator", lambda: generator)
+    service = rag_client.build_service()
+    monkeypatch.setattr(retrieval, "get_service", lambda: service)
+    label = person_option_label(chosen)
+
+    result = retrieval.answer(
+        label + "에 대해 자세히 알려주세요.",
+        interaction_id="INT-selected-source", clarification_context=followup(label),
+        selected_source_chunk_ids=[chosen["chunk_id"]],
+    )
+
+    dense.fetch_by_ids.assert_called_once_with([chosen["chunk_id"]])
+    generator.invoke.assert_called_once()
+    assert result["response"]["response_type"] == "answered"
+    assert result["retrieved_contexts"][0]["chunk_id"] == chosen["chunk_id"]

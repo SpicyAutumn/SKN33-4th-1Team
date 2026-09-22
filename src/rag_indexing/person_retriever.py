@@ -88,6 +88,10 @@ class PersonTitleRetriever:
     def search(self, question: str, *, top_k: int = 5) -> list[dict[str, Any]]:
         return self._search(question, top_k=top_k)
 
+    def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        """Forward selected-source lookup through the outer retriever wrapper."""
+        return self.retriever.fetch_by_ids(chunk_ids)
+
     def search_with_clarification(
         self, question: str, *, clarification_context: dict[str, Any], top_k: int = 5
     ) -> list[dict[str, Any]]:
