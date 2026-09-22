@@ -249,6 +249,75 @@ def me(request):
     return JsonResponse(_user_data(session.user))
 
 
+@require_http_methods(["GET", "PATCH", "DELETE"])
+def my_profile(request):
+    """Read, update, or permanently remove the signed-in member's account."""
+    session, error = _require_session(request)
+    if error:
+        return error
+    user = session.user
+    if request.method == "GET":
+        return JsonResponse(_user_data(user))
+
+    payload = _payload(request)
+    if payload is None:
+        return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
+
+    if request.method == "PATCH":
+        name = str(payload.get("name", user.name)).strip()
+        email = str(payload.get("email", user.email)).strip().lower()
+        email_changed = email != user.email
+        if not 1 <= len(name) <= 50 or not email:
+            return _error("VALIDATION_ERROR", "이름과 이메일을 확인해 주세요.", 422)
+        if email_changed:
+            current_password = str(payload.get("current_password", ""))
+            if not check_password(current_password, user.password_hash):
+                return _error("INVALID_CREDENTIALS", "이메일을 바꾸려면 현재 비밀번호를 입력해 주세요.", 401)
+            if ServiceUser.objects.exclude(pk=user.pk).filter(email=email).exists():
+                return _error("EMAIL_ALREADY_EXISTS", "이미 사용 중인 이메일입니다.", 409)
+        user.name = name
+        user.email = email
+        user.save(update_fields=["name", "email", "updated_at"])
+        return JsonResponse(_user_data(user))
+
+    current_password = str(payload.get("current_password", ""))
+    if not check_password(current_password, user.password_hash):
+        return _error("INVALID_CREDENTIALS", "현재 비밀번호를 확인해 주세요.", 401)
+    if str(payload.get("confirmation", "")).strip() != "탈퇴":
+        return _error("VALIDATION_ERROR", "탈퇴 확인란에 '탈퇴'를 입력해 주세요.", 422)
+    with transaction.atomic():
+        # These relations are deliberately RESTRICT in the schema, so delete a
+        # member's private records explicitly before removing the account.
+        ErrorReport.objects.filter(owner=user).delete()
+        SearchRecord.objects.filter(owner=user).delete()
+        AuthSession.objects.filter(user=user).delete()
+        user.delete()
+    response = JsonResponse({}, status=204)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@require_POST
+def my_password(request):
+    session, error = _require_session(request)
+    if error:
+        return error
+    payload = _payload(request)
+    if payload is None:
+        return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
+    current_password = str(payload.get("current_password", ""))
+    new_password = str(payload.get("new_password", ""))
+    if not check_password(current_password, session.user.password_hash):
+        return _error("INVALID_CREDENTIALS", "현재 비밀번호를 확인해 주세요.", 401)
+    if len(new_password) < 8:
+        return _error("VALIDATION_ERROR", "새 비밀번호는 8자 이상으로 입력해 주세요.", 422)
+    session.user.password_hash = make_password(new_password)
+    session.user.save(update_fields=["password_hash", "updated_at"])
+    # Keep this browser logged in, but invalidate every other device.
+    AuthSession.objects.filter(user=session.user).exclude(pk=session.pk).update(revoked_at=timezone.now())
+    return JsonResponse({"message": "비밀번호를 변경했습니다."})
+
+
 @require_POST
 def searches(request):
     payload = _payload(request)
