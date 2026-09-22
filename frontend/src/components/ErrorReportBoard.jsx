@@ -11,31 +11,47 @@ const dateLabel = (value) => {
 };
 const statusKey = (status) => ["reviewing", "in_review"].includes(status) ? "reviewing" : ["completed", "resolved"].includes(status) ? "completed" : "received";
 
-export default function ErrorReportBoard({ api, onBack }) {
+export default function ErrorReportBoard({ api, onBack, selectedId = null, onOpenDetail, onCloseDetail }) {
   const [state, setState] = useState({ items: [], loading: true, error: "" });
   const [filter, setFilter] = useState("all");
-  const [selected, setSelected] = useState(null);
+  const [localSelected, setLocalSelected] = useState(null);
   const [detail, setDetail] = useState({ item: null, loading: false, error: "" });
   const [retry, setRetry] = useState(0);
+  const [detailRetry, setDetailRetry] = useState(0);
+  const selected = selectedId || localSelected;
   useEffect(() => {
     let active = true;
     setState({ items: [], loading: true, error: "" });
     api("me/error-reports").then(({ items }) => { if (active) setState({ items: items || [], loading: false, error: "" }); }).catch((error) => { if (active) setState({ items: [], loading: false, error: error.message }); });
     return () => { active = false; };
   }, [api, retry]);
-  const openDetail = async (item) => {
+  useEffect(() => {
+    if (!selected) { setDetail({ item: null, loading: false, error: "" }); return undefined; }
+    let active = true;
+    setDetail({ item: null, loading: true, error: "" });
+    api(`me/error-reports/${encodeURIComponent(selected)}`).then((item) => {
+      if (active) setDetail({ item, loading: false, error: "" });
+    }).catch((error) => {
+      if (active) setDetail({ item: null, loading: false, error: error.message });
+    });
+    return () => { active = false; };
+  }, [api, selected, detailRetry]);
+  const openDetail = (item) => {
     if (!item) return;
-    setSelected(item.id); setDetail({ item: null, loading: true, error: "" });
-    try { setDetail({ item: await api(`me/error-reports/${encodeURIComponent(item.id)}`), loading: false, error: "" }); }
-    catch (error) { setDetail({ item: null, loading: false, error: error.message }); }
+    if (onOpenDetail) onOpenDetail(item.id);
+    else setLocalSelected(item.id);
+  };
+  const closeDetail = () => {
+    if (onCloseDetail) onCloseDetail();
+    else setLocalSelected(null);
   };
   const filteredItems = filter === "all" ? state.items : state.items.filter((item) => statusKey(item.status) === filter);
   if (selected) {
     const report = detail.item;
     return <section className="report-board-page"><div className="report-board-shell">
-      <button type="button" className="board-back" onClick={() => { setSelected(null); setDetail({ item: null, loading: false, error: "" }); }}>← 오류 제보 게시판</button>
+      <button type="button" className="board-back report-detail-back" onClick={closeDetail}>← 오류 제보 게시판</button>
       {detail.loading && <p className="board-state" role="status">제보 내용을 불러오고 있어요.</p>}
-      {detail.error && <div className="board-state board-error" role="alert"><p>{detail.error}</p><button type="button" onClick={() => openDetail(state.items.find((item) => item.id === selected))}>다시 시도</button></div>}
+      {detail.error && <div className="board-state board-error" role="alert"><p>{detail.error}</p><button type="button" onClick={() => setDetailRetry((value) => value + 1)}>다시 시도</button></div>}
       {report && <article className="report-detail-card">
         <div className="report-detail-heading"><div><span className="report-category">{categoryLabels[report.category] || report.category}</span><h1>{report.question}</h1></div><span className={`report-status status-${statusKey(report.status)}`}>{statusLabels[report.status] || report.status}</span></div>
         <section><h2>제보 내용</h2><p className="report-detail-content">{report.content}</p></section>
