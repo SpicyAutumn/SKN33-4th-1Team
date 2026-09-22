@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import photos from '../data/heritagePhotos.json';
+import photos from '../data/todayHeritagePhotos';
 import './TodayHeritage.css';
 
 function nextPhotos(previous) {
