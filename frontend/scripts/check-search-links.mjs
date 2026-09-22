@@ -56,6 +56,7 @@ try {
   await page.getByRole("button", { name: "질문하기", exact: true }).click();
   await page.waitForURL(`**/search/${first}`);
   await page.getByText("저장된 답변 1", { exact: true }).waitFor();
+  if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.SCREENSHOT_DIR}/share-header-desktop.png` });
   await page.reload();
   await page.getByText("요약 1", { exact: true }).waitFor();
   assert.equal(searches, 1, "reload must not generate another answer");
@@ -79,6 +80,7 @@ try {
   await publicPage.getByText("저장된 답변 1", { exact: true }).waitFor();
   assert.equal(await publicPage.getByText("공유된 답변입니다.", { exact: true }).count(), 1);
   assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "mobile layout should fit viewport");
+  if (process.env.SCREENSHOT_DIR) await publicPage.screenshot({ path: `${process.env.SCREENSHOT_DIR}/share-header-mobile.png` });
   await publicPage.reload();
   await publicPage.getByText("요약 1", { exact: true }).waitFor();
   await publicPage.goto(`${base}/search/${first}`);
