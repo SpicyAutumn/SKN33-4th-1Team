@@ -117,6 +117,32 @@ def test_bm25_keeps_exact_title_results_for_known_heritage_terms(tmp_path: Path)
         assert BM25Retriever(database).search(f"{name}은 무엇이야?", top_k=3)[0]["title"] == name
 
 
+def test_bm25_matches_a_spaceless_query_to_a_spaced_title_without_reindexing(tmp_path: Path) -> None:
+    chunks = [
+        {
+            "chunk_id": f"suwon-{section}",
+            "document_id": "aks:E0064671",
+            "title": "수원 화성",
+            "content": content,
+            "source_url": "https://encykorea.aks.ac.kr/Article/E0064671",
+            "section": section,
+            "metadata": {"aliases": [], "document_fingerprint": "fingerprint-suwon"},
+        }
+        for section, content in (
+            ("definition", "경기도 수원시에 있는 조선 후기 성곽."),
+            ("body", "정조 때 축조된 성곽의 역사와 구조를 설명한다."),
+        )
+    ]
+    database = tmp_path / "aks.sqlite3"
+    build_bm25_index(chunks, database)
+
+    results = BM25Retriever(database).search("수원화성", top_k=5)
+
+    assert [result["chunk_id"] for result in results] == ["suwon-definition", "suwon-body"]
+    assert {result["document_id"] for result in results} == {"aks:E0064671"}
+    assert all(result["source_url"].endswith("/E0064671") for result in results)
+
+
 def test_bm25_rejects_a_chunk_without_contract_fingerprint(tmp_path: Path) -> None:
     chunks = [
         {
