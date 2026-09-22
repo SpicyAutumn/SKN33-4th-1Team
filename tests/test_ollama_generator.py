@@ -49,6 +49,39 @@ def generation_request() -> dict:
 
 
 class OllamaGeneratorTest(unittest.TestCase):
+    def test_context_cleanup_preserves_paragraph_breaks(self) -> None:
+        for newline in ("\n", "\r\n", "\r"):
+            for ref in ("(CTX-1)", "[CTX-1, CTX-2]", "CTX-1"):
+                raw = f"첫 문단입니다.{newline}{newline}{ref} 다음 문단입니다."
+                expected = f"첫 문단입니다.{newline}{newline}다음 문단입니다."
+                with self.subTest(newline=newline, ref=ref):
+                    self.assertEqual(_sanitize_internal_context_refs(raw), expected)
+
+    def test_context_cleanup_preserves_lists_and_reference_only_lines(self) -> None:
+        raw = "설명입니다.\n\n(CTX-1)\n  - 항목 하나 [CTX-2]\n  - 항목 둘\n    세부 설명입니다."
+        expected = "설명입니다.\n\n\n  - 항목 하나\n  - 항목 둘\n    세부 설명입니다."
+        self.assertEqual(_sanitize_internal_context_refs(raw), expected)
+        self.assertEqual(_sanitize_internal_context_refs("문장입니다\n.\n다음 설명"), "문장입니다\n.\n다음 설명")
+
+    def test_context_cleanup_leaves_ordinary_paragraphs_intact(self) -> None:
+        raw = "첫 문단입니다.\n\n두 번째 문단입니다.\n- 목록"
+        self.assertEqual(_sanitize_internal_context_refs(raw), raw)
+
+    def test_context_cleanup_applies_to_visible_fields_without_changing_ids(self) -> None:
+        raw = "첫 문단입니다.\n\n[CTX-1] 다음 문단입니다."
+        output = {"summary": raw, "draft_message": raw,
+                  "used_chunk_ids": ["CTX-1"],
+                  "clarification": {"question": raw, "options": [{"label": raw, "source_chunk_ids": ["CTX-1"]}]},
+                  "premise_correction": {"original_premise": raw, "corrected_premise": raw, "source_chunk_ids": ["CTX-1"]}}
+        _sanitize_user_facing_text(output)
+        expected = "첫 문단입니다.\n\n다음 문단입니다."
+        for value in (output["summary"], output["draft_message"], output["clarification"]["question"],
+                      output["clarification"]["options"][0]["label"], output["premise_correction"]["corrected_premise"]):
+            self.assertEqual(value, expected)
+        self.assertEqual(output["used_chunk_ids"], ["CTX-1"])
+        self.assertEqual(output["clarification"]["options"][0]["source_chunk_ids"], ["CTX-1"])
+        self.assertEqual(output["premise_correction"]["source_chunk_ids"], ["CTX-1"])
+
     def test_sanitizes_internal_context_references_from_user_text(self) -> None:
         cases = {
             "검색된 문맥(CTX-1, CTX-2)은 수원 화성의 배경을 설명합니다.":
