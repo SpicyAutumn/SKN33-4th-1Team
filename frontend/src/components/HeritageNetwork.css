@@ -40,3 +40,5 @@
  .answer-support > .heritage-network { padding:20px 0 0; border-left:0; border-top:1px solid #dce4dd; }
 }
 .answer-support:not(:has(.heritage-network)) { grid-template-columns:minmax(0,1fr); }
+.heritage-network-branches li { display:flex; flex-direction:column; gap:3px; }
+.answer-support .heritage-network-branches .network-explore { padding:3px 6px; border:0; background:transparent; font-size:11px; text-decoration:underline; }

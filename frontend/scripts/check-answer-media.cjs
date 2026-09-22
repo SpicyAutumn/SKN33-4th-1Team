@@ -20,5 +20,12 @@ assert.doesNotMatch(render(group([{ ...photo, url: 'javascript:alert(1)' }])), /
 assert.doesNotMatch(render(group([{ ...photo, kogl_type: '' }])), /has-media/);
 assert.doesNotMatch(render(group([photo, photo])), /다음 사진/);
 assert.match(render(group([photo, { ...photo, url: 'https://example.org/head.jpg', title: '대표사진', role: 'head' }])), /alt="대표사진"/);
+const prepared = require('../src/data/heritagePhotos.json')[0];
+const fallback = renderToStaticMarkup(React.createElement(Component, { citations: [{ document_id: `aks:${prepared.eid}` }] }, '답변'));
+assert.match(fallback, /has-media/);
+assert.ok(fallback.includes(prepared.image));
+assert.ok(fallback.includes(prepared.copyright_display));
+const unmatched = renderToStaticMarkup(React.createElement(Component, { citations: [{ title: prepared.article_title, document_id: 'aks:OTHER' }] }, '답변'));
+assert.doesNotMatch(unmatched, /has-media/);
 buildSync({ absWorkingDir: root, entryPoints: ['src/review/history-review.jsx'], bundle: true, write: false, platform: 'browser', jsx: 'automatic', loader: { '.css': 'empty' } });
 console.log('PASS: media presence, attribution, document match, URL scheme, license, deduplication, head priority, review entry build');

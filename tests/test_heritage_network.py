@@ -14,6 +14,14 @@ def entry(id, title, field="건축", kind="유적", period="조선"):
 
 
 class NetworkGraphTest(unittest.TestCase):
+    def test_request_wording_is_not_a_subject(self):
+        book = graph.Catalog([entry('a', '경복궁'), entry('b', '주세')])
+        for question in ('경복궁에 대해 알려주세요.', '경복궁을 설명해 주세요', '경복궁을 소개해주세요'):
+            self.assertEqual([item.title for item in book.question_candidates(question)], ['경복궁'])
+        self.assertEqual(book.resolve_question('주세에 대해 알려주세요').title, '주세')
+        book = graph.Catalog([entry('a', '경복궁'), entry('b', '위치'), entry('c', '특징')])
+        self.assertEqual(book.resolve_question('경복궁의 위치와 특징은 무엇인가요?').title, '경복궁')
+
     def test_comparison_keeps_both_subjects(self):
         book = graph.Catalog([entry("a", "경복궁"), entry("b", "창덕궁")])
         self.assertEqual(len(book.question_candidates("경복궁과 창덕궁의 차이")), 2)
