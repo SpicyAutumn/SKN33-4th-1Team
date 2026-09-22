@@ -21,6 +21,23 @@ PAYLOAD = {
 
 
 class PineconeStoreTests(unittest.TestCase):
+    def test_selected_document_body_search_applies_filter_and_keeps_namespace(self) -> None:
+        from unittest.mock import Mock
+
+        retriever = object.__new__(PineconeRetriever)
+        retriever._embed = Mock(return_value=[[0.1, 0.2]])
+        retriever._index = Mock()
+        retriever._index.query.return_value = {"matches": []}
+        retriever.namespace = "aks-test"
+        self.assertEqual(retriever.search_documents("설명", document_ids=["aks:E1"], top_k=3), [])
+        retriever._index.query.assert_called_once_with(
+            vector=[0.1, 0.2], top_k=3, include_metadata=True, namespace="aks-test",
+            filter={"document_id": {"$in": ["aks:E1"]}, "section": {"$eq": "body"}},
+        )
+        retriever._embed.reset_mock()
+        self.assertEqual(retriever.search_documents("설명", document_ids=[]), [])
+        retriever._embed.assert_not_called()
+
     def test_embedding_input_uses_selected_fields_and_records_version(self) -> None:
         chunk = build_chunks([PAYLOAD])[0]
         text = embedding_text(chunk)

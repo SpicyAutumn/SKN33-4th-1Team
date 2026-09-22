@@ -88,6 +88,34 @@ class PersonTitleRetriever:
     def search(self, question: str, *, top_k: int = 5) -> list[dict[str, Any]]:
         return self._search(question, top_k=top_k)
 
+    def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        """Preserve exact source lookup through the outer service wrapper."""
+        return self.retriever.fetch_by_ids(chunk_ids)
+
+    def search_documents(
+        self, question: str, *, document_ids: list[str], top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        """Expand an explicit selection without parsing the rewritten UI label.
+
+        Reuse the catalogue's definition/body lookup. If a document is absent
+        locally, search only that document in the remote index instead.
+        """
+        contexts = []
+        missing = []
+        for document_id in dict.fromkeys(document_ids):
+            chunks = (
+                self.document_store.document_chunks(document_id, top_k=top_k)
+                if self.document_store is not None else []
+            )
+            contexts.extend(chunks)
+            if not any(c.get("section") == "body" for c in chunks):
+                missing.append(document_id)
+        if missing:
+            contexts.extend(self.retriever.search_documents(
+                question, document_ids=missing, top_k=top_k
+            ))
+        return contexts
+
     def search_with_clarification(
         self, question: str, *, clarification_context: dict[str, Any], top_k: int = 5
     ) -> list[dict[str, Any]]:

@@ -184,3 +184,98 @@ def test_invalid_selection_does_not_guess_or_send_mixed_people_to_model(store):
     result = service.answer("이순신 장군", clarification_context=followup("알아서 골라줘"))
     assert result["response_type"] == "insufficient_evidence"
     delegate.invoke.assert_not_called()
+
+
+@pytest.mark.parametrize("mode", ["hybrid", "dense"])
+@pytest.mark.parametrize("document_id", ["admiral", "homonym"])
+@pytest.mark.parametrize("level", ["easy", "general", "advanced"])
+def test_structured_choice_through_actual_service_factory(store, monkeypatch, mode, document_id, level):
+    """Exercise the deployed wrapper stack, mocking only network boundaries."""
+    definitions = store.definitions("이순신")
+    chosen = next(c for c in definitions if c["document_id"] == document_id)
+    other_id = "homonym" if document_id == "admiral" else "admiral"
+    dense = Mock()
+    dense.search.return_value = store.document_chunks(other_id, top_k=3)
+    dense.fetch_by_ids.return_value = [chosen]
+    dense.search_documents.side_effect = lambda question, *, document_ids, top_k: [
+        c for doc in document_ids for c in store.document_chunks(doc, top_k=top_k)
+        if c["section"] == "body"
+    ]
+    monkeypatch.setattr("rag_indexing.pinecone_store.PineconeRetriever", lambda: dense)
+    path = store.database_path if mode == "hybrid" else store.database_path.with_name("absent.sqlite3")
+    monkeypatch.setattr(rag_client, "bm25_index_path", lambda: path)
+    monkeypatch.setattr(rag_client, "missing_env", lambda: [])
+    generator = Mock(wraps=AnswerGenerator())
+    monkeypatch.setattr("rag_service.ollama_generator.OllamaGenerator", lambda: generator)
+    service = rag_client.build_service()
+    monkeypatch.setattr(retrieval, "get_service", lambda: service)
+
+    if mode == "hybrid":
+        first = retrieval.answer("이순신 장군", audience_level=level)
+        assert first["response"]["response_type"] == "needs_clarification"
+        assert any(o["source_chunk_ids"] == [chosen["chunk_id"]]
+                   for o in first["response"]["clarification"]["options"])
+        generator.invoke.assert_not_called()
+    dense.reset_mock()
+    label = person_option_label(chosen)
+    context = followup(label)
+    result = retrieval.answer(
+        label + "에 대해 자세히 알려주세요.", audience_level=level,
+        interaction_id="INT-choice", clarification_context=context,
+        selected_source_chunk_ids=[chosen["chunk_id"]],
+        retrieved_contexts=definitions,  # discard the previous ambiguous evidence
+    )
+    assert result["response"]["response_type"] == "answered"
+    contexts = result["retrieved_contexts"]
+    assert {c["document_id"] for c in contexts} == {document_id}
+    assert [c["section"] for c in contexts] == ["definition", "body"]
+    assert [c["retrieval_rank"] for c in contexts] == [1, 2]
+    assert len(contexts) <= service.config.top_k
+    generator.invoke.assert_called_once()
+    request = generator.invoke.call_args.args[0]
+    assert request["clarification_context"] == context
+    assert request["retrieved_contexts"] == contexts
+    dense.fetch_by_ids.assert_called_once_with([chosen["chunk_id"]])
+    dense.search.assert_not_called()
+    if mode == "hybrid":
+        dense.search_documents.assert_not_called()
+    else:
+        dense.search_documents.assert_called_once()
+
+
+def test_selected_nonperson_document_also_fetches_its_body(store):
+    chosen = store.document_chunks("novel", top_k=1)[0]
+    dense = Mock()
+    dense.fetch_by_ids.return_value = [chosen]
+    retriever = retrieval._PinnedContextsRetriever(PersonTitleRetriever(dense, store), [chosen["chunk_id"]])
+    result = retriever.search("이순신 소설에 대해 자세히 알려주세요.")
+    assert {c["document_id"] for c in result} == {"novel"}
+    assert [c["section"] for c in result] == ["definition", "body"]
+    dense.search.assert_not_called()
+
+
+def test_missing_local_document_uses_scoped_remote_lookup(store):
+    dense = Mock()
+    chosen = chunk("remote", "원격 문서", "원격 문서의 정의")
+    dense.fetch_by_ids.return_value = [chosen]
+    dense.search_documents.return_value = [
+        chunk("remote", "원격 문서", "원격 문서의 본문", "body"),
+        chunk("other", "원격 문서", "다른 동명이인의 본문", "body"),
+    ]
+    retriever = retrieval._PinnedContextsRetriever(PersonTitleRetriever(dense, store), [chosen["chunk_id"]])
+    result = retriever.search("원격 문서 설명")
+    assert {c["document_id"] for c in result} == {"remote"}
+    assert any(c["section"] == "body" for c in result)
+    dense.search_documents.assert_called_once_with("원격 문서 설명", document_ids=["remote"], top_k=3)
+    dense.search.assert_not_called()
+
+
+def test_missing_remote_body_does_not_fill_with_unselected_people():
+    dense = Mock()
+    chosen = chunk("selected", "이순신", "선택한 인물의 정의")
+    dense.fetch_by_ids.return_value = [chosen]
+    dense.search_documents.return_value = []
+    retriever = retrieval._PinnedContextsRetriever(PersonTitleRetriever(dense), [chosen["chunk_id"]])
+    result = retriever.search("인물 설명")
+    assert [c["chunk_id"] for c in result] == [chosen["chunk_id"]]
+    dense.search.assert_not_called()
