@@ -16,3 +16,28 @@
 .heritage-loading-controls > span { margin-right: auto; color: #69776f; }
 .heritage-loading-controls button { background: #edf3ea; color: #285b48; padding: 9px 12px; border-radius: 8px; }
 @media(max-width:600px) { .heritage-loading-tour { grid-template-columns: 1fr; gap: 14px; } .heritage-loading-map { padding: 0; } .heritage-loading-map svg { height: 110px; } .heritage-loading-photo > img { height: 200px; } }
+/* Fixed peninsula map; province highlight and photo share one transition. */
+.heritage-loading .province-tour { display: block; position: relative; min-height: 620px; }
+.province-tour .heritage-loading-map { width: min(660px,100%); margin: auto; padding: 0; }
+.province-tour .heritage-loading-map svg { display: block; width: 100%; height: auto; }
+.province-tour path { fill: #d5e2ce; stroke: #8ba28b; stroke-width: .55; stroke-linejoin: round; fill-rule: evenodd; }
+.province-tour path.selected-province { fill: #739b72; stroke: #365d3e; stroke-width: 1; }
+.province-label rect { fill: #fafbf4; }
+.province-label text { font-size: 10px; fill: #285b48; }
+.province-tour .province-photo { position: absolute; top: 38%; width: 260px; max-width: 34%; padding: 14px; border-radius: 14px; background: #fafbf4f5; box-shadow: 0 8px 24px #304d3214; }
+.province-photo.is-west { left: 1%; }
+.province-photo.is-east { right: 1%; }
+.province-photo-frame { height: 150px; background: #edf1e8; border-radius: 8px; overflow: hidden; }
+.province-photo-frame img { width: 100%; height: 100%; object-fit: contain; }
+.province-tour .province-photo h3 { font-size: 18px; }
+.province-photo, .province-label, .selected-province { transition: opacity .4s ease; }
+.province-tour.is-changing .province-photo, .province-tour.is-changing .province-label, .province-tour.is-changing .selected-province { opacity: 0; }
+.heritage-map-source { font-size: 11px; line-height: 1.6; color: #69776f; }
+.heritage-map-source a { color: #285b48; }
+@media(max-width:760px) {
+  .heritage-loading .province-tour { min-height: 0; }
+  .province-tour .heritage-loading-map { max-width: 430px; }
+  .province-tour .province-photo { position: relative; top: auto; left: auto; right: auto; width: 100%; max-width: 440px; margin: 0 auto; }
+  .province-photo-frame { height: 190px; }
+}
+@media(prefers-reduced-motion:reduce) { .province-photo, .province-label, .selected-province { transition: none; } }

@@ -32,7 +32,7 @@ export default function TodayHeritage({ onAsk, dateLabel }) {
     <div className="today-heading"><div><h2>오늘의 문화유산</h2><p>{dateLabel} · 문화·자연유산을 세 곳씩 소개해요.</p></div><button type="button" className="today-pause" aria-pressed={paused} onClick={() => setPaused((value) => !value)}>{paused ? '자동 전환 재개' : '자동 전환 멈춤'}</button></div>
     <div className="today-cards">{selected.map((photo) => <article className="today-card" key={photo.id}>
       <button type="button" className="today-ask" onClick={() => onAsk(`${photo.name}에 대해 알려주세요.`)}>
-        {!failedImages[photo.id] && <img src={photo.image} alt={photo.title} loading="lazy" decoding="async" width="320" height="180" onError={() => setFailedImages((current) => ({ ...current, [photo.id]: true }))} />}
+        <span className="today-photo">{!failedImages[photo.id] ? <img src={photo.image} alt={photo.title} loading="lazy" decoding="async" width="320" height="180" onError={() => setFailedImages((current) => ({ ...current, [photo.id]: true }))} /> : <span className="today-photo-fallback">{photo.name}</span>}</span>
         <span className="today-copy"><small>{photo.region} · {photo.category}</small><b>{photo.name}</b><span>질문으로 알아보기 →</span></span>
       </button>
       <div className="today-credit"><p>{photo.attribution}</p><p>{photo.copyright_display}</p><a href={photo.license_url} target="_blank" rel="noopener noreferrer">{photo.kogl_label}</a><span> · </span><a href={photo.source_page} target="_blank" rel="noopener noreferrer">사진 출처 ↗</a><details><summary>사진 설명</summary><p>{photo.description}</p></details></div>
