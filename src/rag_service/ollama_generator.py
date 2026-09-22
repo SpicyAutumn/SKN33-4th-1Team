@@ -13,7 +13,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "response-type-v3-complete-summary-ollama"
+PROMPT_VERSION = "response-type-v4-causal-evidence-ollama"
 MODEL_OUTPUT_FIELDS = {
     "candidate_response_type",
     "summary",
@@ -131,6 +131,7 @@ SYSTEM_PROMPT = """당신은 검색된 역사·문화 문서를 근거로 답변
 2. 질문이 연도·인물·분류 등의 사실을 단정하고, 검색 문맥이 그 전제를 명확히 반박하면서 올바른 사실을 제시하면 corrected_premise이다. 올바른 내용을 설명했더라도 answered로 분류하지 않는다.
 3. 질문이 요구한 정확한 날짜·시각·수량·전체 명단·특정 인물의 신원을 검색 문맥에서 직접 확인할 수 없으면 insufficient_evidence이다. 관련 주제의 문서가 검색되었다는 이유만으로 answered를 선택하지 않는다.
 4. 질문의 핵심에 직접 답할 사실이 문맥에 있으면 answered이다.
+   `왜`, `목적`, `배경`, `이유`를 묻는 질문에서는 문맥에 원인·계기·이전 계획·정치적 배경이 직접 서술되어 있으면 그 사실을 연결해 answered로 답한다. 문맥에 정확히 `목적`이라는 낱말이 없다는 이유만으로 insufficient_evidence를 선택하지 않는다. 다만 문맥에 없는 의도나 효과를 새로 추론하지 않는다.
 5. safety_refusal과 out_of_scope는 보통 서비스가 생성 전에 판정하지만, 해당 유형이 명백하면 같은 유형을 유지한다.
 6. draft_message에서 질문의 전제를 `아니다`, `아니라`, `잘못됐다`, `다른 분류다`처럼 바로잡았다면 candidate_response_type은 반드시 corrected_premise여야 한다.
 7. corrected_premise 답변은 잘못된 전제에 `네, 맞습니다`라고 동의하며 시작하지 않는다. 잘못된 부분과 올바른 사실을 바로 설명한다.

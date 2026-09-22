@@ -6,6 +6,7 @@ import unittest
 
 from rag_service.ollama_generator import (
     OllamaGenerator,
+    SYSTEM_PROMPT,
     _complete_summary,
     _keep_alive_value,
     _normalize_corrected_premise,
@@ -46,6 +47,10 @@ def generation_request() -> dict:
 
 
 class OllamaGeneratorTest(unittest.TestCase):
+    def test_prompt_treats_explicit_causal_background_as_answer_evidence(self) -> None:
+        self.assertIn("원인·계기·이전 계획·정치적 배경", SYSTEM_PROMPT)
+        self.assertIn("정확히 `목적`이라는 낱말이 없다는 이유만으로", SYSTEM_PROMPT)
+
     def test_invokes_non_thinking_json_chat_and_assembles_contract(self) -> None:
         captured: dict = {}
 
