@@ -12,7 +12,7 @@ export default function HeritageNetwork(props) {
   return <Explorer key={props.answerKey} {...props} />;
 }
 
-function Explorer({ question, onAsk, citations = [], request = fetchHeritageNetwork }) {
+function Explorer({ question, onAsk, recovery = false, citations = [], request = fetchHeritageNetwork }) {
   const documentIds = [...new Set(citations.map((citation) => citation.document_id)
     .filter((id) => /^aks:[A-Za-z0-9_-]{1,64}$/.test(id || "")))].slice(0, 10).join(",");
   const explorer = useMemo(() => createNetworkExplorer(request, { question, document_ids: documentIds }), [request, question, documentIds]);
@@ -22,9 +22,9 @@ function Explorer({ question, onAsk, citations = [], request = fetchHeritageNetw
 
   useEffect(() => { explorer.open(); return () => explorer.cancel(); }, [explorer]);
   const root = state.data?.root;
-  return <section className="heritage-network" aria-label="함께 알아보기">
-    <div className="heritage-network-heading"><h2>함께 알아보기</h2></div>
-    <p className="heritage-network-note">분류·지역이 비슷한 항목입니다.</p>
+  return <section className="heritage-network" aria-label={recovery ? "다른 질문으로 찾아보기" : "함께 알아보기"}>
+    <div className="heritage-network-heading"><h2>{recovery ? "다른 질문으로 찾아보기" : "함께 알아보기"}</h2></div>
+    <p className="heritage-network-note">{recovery ? "질문의 대상과 연결된 수집 항목입니다. 답변 근거가 충분한지는 다시 검색해야 확인할 수 있어요." : "분류·지역이 비슷한 항목입니다."}</p>
     <div>
       {(state.history.length > 0 || state.busy) && <div className="heritage-network-toolbar">
         {state.history.length > 0 && <button type="button" disabled={state.busy} onClick={explorer.back}>← 이전 탐색</button>}

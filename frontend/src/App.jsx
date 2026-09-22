@@ -7,6 +7,7 @@ import HomeLayout from "./components/HomeLayout";
 import SearchHistory from "./components/SearchHistory";
 import EvidenceSources from "./components/EvidenceSources";
 import HeritageNetwork from "./components/HeritageNetwork";
+import QuestionRetry from "./components/QuestionRetry";
 import ErrorReportBoard from "./components/ErrorReportBoard";
 import AdminErrorReportBoard from "./components/AdminErrorReportBoard";
 
@@ -55,9 +56,9 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
       <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}><AnswerContent result={result} answerRef={answerText} />
-        {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
+        {onAsk && ["needs_clarification", "insufficient_evidence"].includes(result.response_type) && <QuestionRetry key={result.request_id || result.search_record_id || question + level} question={question} result={result} onAsk={onAsk} busy={loading} />}
         </AnswerMediaLayout>
-        <div className={`answer-support${citations.length ? "" : " no-evidence"}`}><EvidenceSources citations={citations} />{result && !result.error && !loading && result.response_type !== "needs_clarification" && <HeritageNetwork answerKey={result.request_id || result.search_record_id || question + level} question={question} citations={citations} onAsk={onAsk} />}</div>
+        <div className={`answer-support${citations.length ? "" : " no-evidence"}`}><EvidenceSources citations={citations} />{result && !result.error && !loading && result.response_type !== "needs_clarification" && <HeritageNetwork answerKey={result.request_id || result.search_record_id || question + level} question={question} citations={result.response_type === "insufficient_evidence" ? [] : citations} recovery={result.response_type === "insufficient_evidence"} onAsk={onAsk} />}</div>
         {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} capturePreview={capturePreview} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
       </div>
     </article>}
