@@ -238,3 +238,48 @@ class PineconeRetriever:
                 }
             )
         return contexts
+
+    def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch trusted clarification choices by exact vector ID.
+
+        The browser sends only IDs that the server previously returned. The
+        context itself is rebuilt from Pinecone metadata so client-provided
+        text can never become answer evidence.
+        """
+        ordered_ids = list(dict.fromkeys(str(chunk_id) for chunk_id in chunk_ids if str(chunk_id).strip()))
+        if not ordered_ids:
+            return []
+        response = self._index.fetch(ids=ordered_ids, namespace=self.namespace)
+        vectors = getattr(response, "vectors", None)
+        if vectors is None and isinstance(response, dict):
+            vectors = response.get("vectors", {})
+        if not isinstance(vectors, dict):
+            return []
+
+        contexts: list[dict[str, Any]] = []
+        for rank, chunk_id in enumerate(ordered_ids, start=1):
+            vector = vectors.get(chunk_id)
+            if vector is None:
+                continue
+            metadata = getattr(vector, "metadata", None)
+            if metadata is None and isinstance(vector, dict):
+                metadata = vector.get("metadata", {})
+            metadata = dict(metadata or {})
+            source_url = _nullable_text(metadata.pop("source", None) or metadata.pop("source_url", None))
+            metadata.pop("page", None)
+            metadata = _normalize_v1_metadata(metadata)
+            contexts.append(
+                {
+                    "chunk_id": chunk_id,
+                    "document_id": _required_metadata_text(metadata, "document_id"),
+                    "title": _required_metadata_text(metadata, "title"),
+                    "content": _required_metadata_text(metadata, "content"),
+                    "source_url": source_url,
+                    "section": _nullable_text(metadata.pop("section", None)),
+                    "retrieval_rank": rank,
+                    "retrieval_score": None,
+                    "score_type": "unknown",
+                    "metadata": metadata,
+                }
+            )
+        return contexts

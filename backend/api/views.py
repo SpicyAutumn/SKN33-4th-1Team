@@ -256,10 +256,36 @@ def searches(request):
         return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
     question = str(payload.get("question", "")).strip()
     audience_level = str(payload.get("audience_level", "general"))
+    interaction_id = payload.get("interaction_id")
+    clarification_context = payload.get("clarification_context")
+    selected_source_chunk_ids = payload.get("selected_source_chunk_ids", [])
     if not question or len(question) > 1000 or audience_level not in LEVELS:
         return _error("VALIDATION_ERROR", "질문 또는 설명 수준을 확인해 주세요.", 422)
+    if interaction_id is not None and (not isinstance(interaction_id, str) or not interaction_id.strip()):
+        return _error("VALIDATION_ERROR", "추가 질문 연결 정보를 확인해 주세요.", 422)
+    if clarification_context is not None and not isinstance(clarification_context, dict):
+        return _error("VALIDATION_ERROR", "추가 질문 내용을 확인해 주세요.", 422)
+    if (
+        not isinstance(selected_source_chunk_ids, list)
+        or len(selected_source_chunk_ids) > 3
+        or any(
+            not isinstance(chunk_id, str)
+            or not chunk_id.strip()
+            or len(chunk_id) > 512
+            for chunk_id in selected_source_chunk_ids
+        )
+    ):
+        return _error("VALIDATION_ERROR", "선택한 근거 정보를 확인해 주세요.", 422)
+    if selected_source_chunk_ids and (clarification_context is None or interaction_id is None):
+        return _error("VALIDATION_ERROR", "선택한 근거에는 추가 질문 연결 정보가 필요합니다.", 422)
     try:
-        response = rag_answer(question, audience_level=audience_level)
+        response = rag_answer(
+            question,
+            audience_level=audience_level,
+            interaction_id=interaction_id.strip() if isinstance(interaction_id, str) else None,
+            clarification_context=clarification_context,
+            selected_source_chunk_ids=[chunk_id.strip() for chunk_id in selected_source_chunk_ids],
+        )
     except RagUnavailableError:
         return _error("RAG_UPSTREAM_ERROR", "지금은 자료를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.", 502)
 
