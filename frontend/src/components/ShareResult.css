@@ -1,0 +1,6 @@
+.search-share { margin: 16px 0; padding: 16px; border: 1px solid #ddd8ce; border-radius: 12px; background: #fffdf8; }
+.search-share > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.search-share span, .search-share label, .search-share p { font-size: 14px; line-height: 1.6; }
+.search-share label { display: block; margin-top: 12px; }
+.search-share input { display: block; width: 100%; min-width: 0; box-sizing: border-box; margin-top: 4px; padding: 10px; border: 1px solid #b9b1a2; border-radius: 6px; }
+.search-share p:empty { display: none; }

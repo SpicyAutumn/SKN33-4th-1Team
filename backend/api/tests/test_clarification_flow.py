@@ -9,6 +9,7 @@ import django
 django.setup()
 
 from django.test import RequestFactory, SimpleTestCase
+from django.http import JsonResponse
 
 from api import rag_runtime, views
 
@@ -49,6 +50,9 @@ class ClarificationRuntimeTest(SimpleTestCase):
 class ClarificationApiTest(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
+        save = patch.object(views, "save_result", side_effect=lambda request, answer, *args: JsonResponse(answer))
+        self.save_result = save.start()
+        self.addCleanup(save.stop)
 
     def test_search_endpoint_forwards_followup_fields(self):
         context = {

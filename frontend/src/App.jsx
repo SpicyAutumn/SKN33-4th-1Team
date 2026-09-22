@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { pushPath, readSearchRoute } from "./searchRoutes";
+import ShareResult from "./components/ShareResult";
 import AnswerContent from "./components/AnswerContent.jsx";
 import ErrorReportPanel from "./components/ErrorReportPanel";
 import HeritageLoading from "./components/HeritageLoading";
@@ -54,7 +56,7 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-export function AnswerView({ question, level, result, loading, loadingRecord, onBack, onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk }) {
+export function AnswerView({ question, level, result, loading, loadingRecord, onBack, onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk, request }) {
   const [reportActive, setReportActive] = useState(false);
   const answerText = useRef(null);
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
@@ -62,6 +64,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
   return <section className={reportActive ? "answer-page report-active" : "answer-page"}><div className="answer-shell">
     <button type="button" className="back-to-search" onClick={onBack}>← 검색으로 돌아가기</button>
     <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={loading || value === level}>{label}</button>)}</div></section>
+    {!loading && result && !result.error && request && (result.search_result_id || result.share_path) && <ShareResult key={result.search_result_id || result.share_path} result={result} request={request} />}
     {result?.savedRecord && <p className="saved-answer-note">저장된 답변입니다. 설명 수준을 변경하면 새 답변을 생성합니다.</p>}
     {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : (loadingPreview || <HeritageLoading />))}
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
@@ -88,7 +91,7 @@ export default function App({ request = api } = {}) {
   const [question, setQuestion] = useState("");
   const [level, setLevel] = useState("general");
   const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => Boolean(readSearchRoute(window.location.pathname)));
   const [loadingRecord, setLoadingRecord] = useState(false);
   const [historyPage, setHistoryPage] = useState(false);
   const [reportBoardPage, setReportBoardPage] = useState(false);
@@ -114,10 +117,34 @@ export default function App({ request = api } = {}) {
     return () => { active = false; };
   }, [adminPage, request]);
   useEffect(() => {
-    const onPopState = () => setAdminPage(adminRoute());
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+    const restoreLocation = async () => {
+      const version = ++requestVersion.current;
+      const route = readSearchRoute(window.location.pathname);
+      setAdminPage(adminRoute());
+      setHistoryPage(window.location.pathname === "/history");
+      setReportBoardPage(window.location.pathname === "/reports");
+      setResult(null); setQuestion(""); setLoading(Boolean(route)); setLoadingRecord(Boolean(route));
+      if (!route) {
+        if (window.location.pathname.startsWith("/search/") || window.location.pathname.startsWith("/share/")) {
+          setResult({ error: "올바르지 않은 결과 주소입니다. 검색으로 돌아가 다시 검색해 주세요." });
+        }
+        return;
+      }
+      try {
+        const answer = await request(route.endpoint);
+        if (version !== requestVersion.current) return;
+        setQuestion(answer.question); setLevel(answer.audience_level);
+        setResult({ ...answer, savedRecord: true });
+      } catch (error) {
+        if (version === requestVersion.current) setResult({ error: error.message });
+      } finally {
+        if (version === requestVersion.current) { setLoading(false); setLoadingRecord(false); }
+      }
+    };
+    void restoreLocation();
+    window.addEventListener("popstate", restoreLocation);
+    return () => { ++requestVersion.current; window.removeEventListener("popstate", restoreLocation); };
+  }, [request]);
   useEffect(() => {
     const timer = window.setInterval(() => setToday((current) => {
       const next = koreanDate();
@@ -131,6 +158,7 @@ export default function App({ request = api } = {}) {
     try {
       const data = authMode === "signup" ? await request("auth/signup", { method: "POST", body: JSON.stringify({ name: username, email: identity, password }) }) : await request("auth/login", { method: "POST", body: JSON.stringify({ email: identity, password }) });
       setUser(data); setAuthMode(null); setIdentity(""); setUsername(""); setPassword("");
+      if (readSearchRoute(window.location.pathname)) window.dispatchEvent(new PopStateEvent("popstate"));
     } catch (error) { setAuthError(error.message); }
   };
   const askQuestion = async (nextQuestion, nextLevel = level) => {
@@ -150,6 +178,7 @@ export default function App({ request = api } = {}) {
       }) });
       if (version !== requestVersion.current) return;
       setResult(answer);
+      if (answer.search_result_id) pushPath(`/search/${answer.search_result_id}`);
       setHistoryVersion((value) => value + 1);
     }
     catch (error) { if (version === requestVersion.current) setResult({ error: error.message }); }
@@ -157,27 +186,25 @@ export default function App({ request = api } = {}) {
   };
   const ask = async (event) => { event.preventDefault(); await askQuestion(question); };
   const useQuestion = (nextQuestion, nextLevel = level) => { void askQuestion(nextQuestion, nextLevel); };
-  const openRecord = async (item) => {
+  const openRecord = (item) => {
     if (historyMenu.current) historyMenu.current.open = false;
-    const version = ++requestVersion.current;
-    setLoadingRecord(true); setHistoryPage(false); setReportBoardPage(false); setAdminPage(null); setQuestion(item.question); setLevel(item.audience_level); setLoading(true); setResult(null);
+    pushPath(`/search/${encodeURIComponent(item.id)}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
     window.scrollTo({ top: 0, behavior: "smooth" });
-    try {
-      const record = await request("me/searches/" + encodeURIComponent(item.id));
-      if (version !== requestVersion.current) return;
-      setQuestion(record.question); setLevel(record.audience_level);
-      setResult({ ...record, search_record_id: record.id, savedRecord: true });
-    } catch (error) { if (version === requestVersion.current) setResult({ error: error.message }); }
-    finally { if (version === requestVersion.current) setLoading(false); }
   };
-  const historyProps = { api: request, refreshKey: historyVersion, onOpen: openRecord, busy: loading, onMore: () => { if (historyMenu.current) historyMenu.current.open = false; setHistoryPage(true); } };
+  const openPage = (path) => {
+    pushPath(path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const historyProps = { api: request, refreshKey: historyVersion, onOpen: openRecord, busy: loading, onMore: () => { if (historyMenu.current) historyMenu.current.open = false; openPage("/history"); } };
   const backToSearch = () => {
     ++requestVersion.current;
     setQuestion("");
     setLoading(false); setLoadingRecord(false);
     setHistoryPage(false); setReportBoardPage(false); setAdminPage(null);
     setResult(null);
-    if (window.location.pathname.startsWith("/admin")) window.history.pushState({}, "", "/");
+    pushPath("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const openAdminPage = (page) => { ++requestVersion.current; setLoading(false); setHistoryPage(false); setReportBoardPage(false); setResult(null); setAdminPage(page); window.history.pushState({}, "", page === "reports" ? "/admin/reports" : page === "users" ? "/admin/users" : page === "searches" ? "/admin/searches" : "/admin"); window.scrollTo({ top: 0, behavior: "smooth" }); };
@@ -186,8 +213,8 @@ export default function App({ request = api } = {}) {
 
 
   return <main>
-    <header className="site-header"><a className="brand" href="#top" onClick={backToSearch}><span className="brand-mark" aria-hidden="true">📚</span><span>문화유산 AI 가이드</span></a>{adminPage && adminAccess === "granted" ? <button className="outline" onClick={logoutAdmin}>관리자 로그아웃</button> : user ? <div className="user">{showingAnswer && !historyPage && !reportBoardPage && !adminPage && <details ref={historyMenu} className="history-menu" onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary").focus(); } }}><summary>내 검색 기록</summary><SearchHistory key={user.id} {...historyProps} /></details>}<b>{user.name}</b><button type="button" className="user-board-link" onClick={() => { setHistoryPage(false); setAdminPage(null); setReportBoardPage(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}>게시판</button><button className="outline" onClick={logout}>로그아웃</button></div> : <button className="outline login-button" onClick={() => setAuthMode("login")}>로그인 / 회원가입</button>}</header>
-    {adminPage && adminAccess !== "granted" ? <AdminPasswordGate api={request} checking={adminAccess === "checking"} initialError={adminAccessError} onSuccess={() => { setAdminAccess("granted"); setAdminAccessError(""); }} /> : adminPage === "dashboard" ? <AdminDashboard api={request} onBack={backToSearch} onOpenUsers={() => openAdminPage("users")} onOpenReports={() => openAdminPage("reports")} onOpenSearches={() => openAdminPage("searches")} /> : adminPage === "users" ? <AdminUserLog api={request} onBack={() => openAdminPage("dashboard")} /> : adminPage === "searches" ? <AdminSearchLog api={request} onBack={() => openAdminPage("dashboard")} /> : adminPage === "reports" ? <AdminErrorReportBoard api={request} onBack={() => openAdminPage("dashboard")} /> : reportBoardPage && user ? <ErrorReportBoard api={request} onBack={backToSearch} /> : historyPage && user ? <div className="history-page"><SearchHistory key={user.id} {...historyProps} expanded onBack={() => setHistoryPage(false)} /></div> : showingAnswer ? <AnswerView question={question} level={level} result={result} loading={loading} loadingRecord={loadingRecord} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onSubmitReport={(payload) => request("me/error-reports", { method: "POST", body: JSON.stringify(payload) })} onAsk={(nextQuestion) => askQuestion(nextQuestion, level)} /> : <HomeLayout user={user} historyProps={historyProps} question={question} onQuestionChange={setQuestion} onSubmit={ask} level={level} levels={levels} onLevelChange={setLevel} onAsk={useQuestion} dateLabel={today.label} onLogin={() => setAuthMode("login")} />}
+    <header className="site-header"><a className="brand" href="/" onClick={(event) => { event.preventDefault(); backToSearch(); }}><span className="brand-mark" aria-hidden="true">📚</span><span>문화유산 AI 가이드</span></a>{adminPage && adminAccess === "granted" ? <button className="outline" onClick={logoutAdmin}>관리자 로그아웃</button> : user ? <div className="user">{showingAnswer && !historyPage && !reportBoardPage && !adminPage && <details ref={historyMenu} className="history-menu" onKeyDown={(event) => { if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary").focus(); } }}><summary>내 검색 기록</summary><SearchHistory key={user.id} {...historyProps} /></details>}<b>{user.name}</b><button type="button" className="user-board-link" onClick={() => openPage("/reports")}>게시판</button><button className="outline" onClick={logout}>로그아웃</button></div> : <button className="outline login-button" onClick={() => setAuthMode("login")}>로그인 / 회원가입</button>}</header>
+    {adminPage && adminAccess !== "granted" ? <AdminPasswordGate api={request} checking={adminAccess === "checking"} initialError={adminAccessError} onSuccess={() => { setAdminAccess("granted"); setAdminAccessError(""); }} /> : adminPage === "dashboard" ? <AdminDashboard api={request} onBack={backToSearch} onOpenUsers={() => openAdminPage("users")} onOpenReports={() => openAdminPage("reports")} onOpenSearches={() => openAdminPage("searches")} /> : adminPage === "users" ? <AdminUserLog api={request} onBack={() => openAdminPage("dashboard")} /> : adminPage === "searches" ? <AdminSearchLog api={request} onBack={() => openAdminPage("dashboard")} /> : adminPage === "reports" ? <AdminErrorReportBoard api={request} onBack={() => openAdminPage("dashboard")} /> : reportBoardPage && user ? <ErrorReportBoard api={request} onBack={backToSearch} /> : historyPage && user ? <div className="history-page"><SearchHistory key={user.id} {...historyProps} expanded onBack={backToSearch} /></div> : showingAnswer ? <AnswerView request={request} question={question} level={level} result={result} loading={loading} loadingRecord={loadingRecord} onBack={backToSearch} onChangeLevel={(nextLevel) => askQuestion(question, nextLevel)} onSubmitReport={user && !result?.shared ? (payload) => request("me/error-reports", { method: "POST", body: JSON.stringify(payload) }) : undefined} onAsk={(nextQuestion) => askQuestion(nextQuestion, level)} /> : <HomeLayout user={user} historyProps={historyProps} question={question} onQuestionChange={setQuestion} onSubmit={ask} level={level} levels={levels} onLevelChange={setLevel} onAsk={useQuestion} dateLabel={today.label} onLogin={() => setAuthMode("login")} />}
     <footer><div className="footer-inner"><div><b>문화유산 AI 가이드</b><p>문화유산 정보를 AI로 알아보는 교육 프로젝트</p></div><nav><a href="/legal/terms.html">이용약관</a><a href="/legal/privacy.html">개인정보 처리방침</a></nav></div></footer>
     {authMode && <div className="modal"><form onSubmit={submitAuth}><button type="button" className="close" onClick={() => setAuthMode(null)}>×</button><h2>{authMode === "signup" ? "회원가입" : "로그인"}</h2>{authMode === "signup" && <input placeholder="이름" value={username} onChange={(event) => setUsername(event.target.value)} required />}<input placeholder="이메일" type="email" value={identity} onChange={(event) => setIdentity(event.target.value)} required /><input placeholder="비밀번호 (8자 이상)" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />{authError && <p className="error">{authError}</p>}<button className="primary">{authMode === "signup" ? "가입하고 시작하기" : "로그인"}</button><button type="button" className="link" onClick={() => setAuthMode(authMode === "signup" ? "login" : "signup")}>{authMode === "signup" ? "이미 계정이 있어요" : "계정 만들기"}</button></form></div>}
   </main>;

@@ -16,6 +16,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from .media_catalog import media_catalog_status, media_for_citations
 from .models import AuthSession, ErrorReport, SearchCitation, SearchRecord, ServiceUser
+from .search_links import save_result
 from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 SESSION_COOKIE = "heritage_session"
@@ -318,7 +319,8 @@ def searches(request):
                     retrieval_rank=int(item.get("retrieval_rank") or ordinal),
                     content=str(item.get("content") or ""),
                 )
-    return JsonResponse({**response, "search_record_id": str(record.id) if record else None, "created_at": record.created_at.isoformat() if record else None})
+            return save_result(request, response, question, audience_level, session, record)
+    return save_result(request, response, question, audience_level, session, record)
 
 
 @require_GET

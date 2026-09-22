@@ -1,0 +1,84 @@
+// Run against the local Vite preview with Playwright installed (or PLAYWRIGHT_MODULE set).
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || "playwright");
+const base = process.env.PREVIEW_URL || "http://127.0.0.1:4173";
+const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || "msedge", headless: true });
+const first = "11111111-1111-4111-8111-111111111111";
+const second = "22222222-2222-4222-8222-222222222222";
+const token = "33333333-3333-4333-8333-333333333333";
+const answers = new Map();
+let searches = 0;
+let shared = false;
+const errors = [];
+async function mock(context, owner) {
+  await context.route("**/api/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname.replace("/api/v1/", "");
+    const send = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (path === "auth/csrf") return route.fulfill({ contentType: "application/json", headers: { "set-cookie": "csrftoken=test; Path=/" }, body: "{}" });
+    if (path === "auth/me") return send({}, 401);
+    if (path === "searches") {
+      searches++;
+      const input = route.request().postDataJSON();
+      const id = searches === 1 ? first : second;
+      const result = { search_result_id: id, question: input.question, audience_level: input.audience_level,
+        response_type: "answered", summary: `요약 ${searches}`, message: `저장된 답변 ${searches}`, citations: [], media: [] };
+      answers.set(id, result);
+      if (input.question === "느린 질문") await new Promise(resolve => setTimeout(resolve, 600));
+      return send(result);
+    }
+    if (path.endsWith("/share") && owner) { shared = true; return send({ share_path: `/share/${token}` }); }
+    if (path === `shared-searches/${token}` && shared) return send({ ...answers.get(first), search_result_id: undefined, shared: true, share_path: `/share/${token}` });
+    if (path.startsWith("searches/") && owner && answers.has(path.split("/")[1])) return send(answers.get(path.split("/")[1]));
+    return send({ error: { message: "결과를 찾을 수 없거나 접근 권한이 없습니다." } }, 404);
+  });
+}
+try {
+  const context = await browser.newContext();
+  await mock(context, true);
+  const page = await context.newPage();
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(base);
+  await page.getByRole("textbox", { name: "질문", exact: true }).fill("경복궁은 왜 지어졌나요?");
+  await page.getByRole("button", { name: "질문하기", exact: true }).click();
+  await page.waitForURL(`**/search/${first}`);
+  await page.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await page.reload();
+  await page.getByText("요약 1", { exact: true }).waitFor();
+  assert.equal(searches, 1, "reload must not generate another answer");
+  await page.getByRole("button", { name: "초등학생", exact: true }).click();
+  await page.waitForURL(`**/search/${second}`);
+  await page.goBack();
+  await page.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await page.goForward();
+  await page.getByText("저장된 답변 2", { exact: true }).waitFor();
+  await page.goBack();
+  await page.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "링크 공유", exact: true }).click();
+  const linkInput = page.getByRole("textbox", { name: "공유 주소", exact: true });
+  await linkInput.waitFor();
+  assert.equal(await linkInput.inputValue(), `${base}/share/${token}`);
+  const visitor = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await mock(visitor, false);
+  const publicPage = await visitor.newPage();
+  publicPage.on("pageerror", error => errors.push(error.message));
+  await publicPage.goto(`${base}/share/${token}`);
+  await publicPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  assert.equal(await publicPage.getByText("공유된 답변입니다.", { exact: true }).count(), 1);
+  assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "mobile layout should fit viewport");
+  await publicPage.reload();
+  await publicPage.getByText("요약 1", { exact: true }).waitFor();
+  await publicPage.goto(`${base}/search/${first}`);
+  await publicPage.getByRole("alert").waitFor();
+  await publicPage.goto(`${base}/share/invalid`);
+  await publicPage.getByRole("alert").waitFor();
+  await page.getByRole("button", { name: "← 검색으로 돌아가기" }).click();
+  await page.getByRole("textbox", { name: "질문", exact: true }).fill("느린 질문");
+  await page.getByRole("button", { name: "질문하기", exact: true }).click();
+  await page.getByRole("button", { name: "← 검색으로 돌아가기" }).click();
+  await page.waitForTimeout(900);
+  assert.equal(new URL(page.url()).pathname, "/", "late answers must not navigate away from home");
+  await page.getByRole("textbox", { name: "질문", exact: true }).waitFor();
+  assert.deepEqual(errors, []);
+  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links and stale response cancellation");
+} finally { await browser.close(); }

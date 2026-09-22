@@ -89,3 +89,16 @@ class ErrorReport(models.Model):
         db_table = "error_reports"
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["owner", "created_at"], name="error_report_owner_created_idx")]
+
+
+class SearchResult(models.Model):
+    """Immutable answer snapshot; public access requires a separate share token."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(ServiceUser, null=True, blank=True, on_delete=models.CASCADE)
+    guest_token_hash = models.CharField(max_length=64, blank=True, default="")
+    payload = models.JSONField(default=dict)
+    share_token = models.UUIDField(null=True, blank=True, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "search_results"
