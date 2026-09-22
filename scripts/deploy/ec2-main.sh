@@ -48,6 +48,11 @@ recover() {
 }
 trap recover ERR
 git checkout --detach "$sha"
+"${compose[@]}" config --quiet
+sudo -n test -s /etc/letsencrypt/live/skn33heritage.site/fullchain.pem
+sudo -n test -s /etc/letsencrypt/live/skn33heritage.site/privkey.pem
+# Validate TLS configuration before replacing either running service.
+"${compose[@]}" run --rm --no-deps frontend nginx -t
 # Build before replacing the running containers. Database schema is never migrated automatically.
 "${compose[@]}" build
 "${compose[@]}" run --rm --no-deps backend python manage.py shell -c \
@@ -55,8 +60,11 @@ git checkout --detach "$sha"
 switched=1
 # Recreate both services so nginx resolves the new backend container address.
 "${compose[@]}" up -d --no-build --force-recreate --wait --wait-timeout 180
-curl --fail --silent --show-error --retry 6 --retry-delay 5 --retry-all-errors http://127.0.0.1/ >/dev/null
-curl --fail --silent --show-error --retry 6 --retry-delay 5 --retry-all-errors http://127.0.0.1/api/health >/dev/null
+https_check=(curl --fail --silent --show-error --retry 6 --retry-delay 5 --retry-all-errors
+  --connect-timeout 10 --max-time 30 --resolve skn33heritage.site:443:127.0.0.1)
+"${https_check[@]}" https://skn33heritage.site/ >/dev/null
+"${https_check[@]}" https://skn33heritage.site/api/health | python3 -c \
+  'import json,sys; assert json.load(sys.stdin).get("status") == "ok", "Unhealthy HTTPS API"'
 trap - ERR
 echo "Successfully deployed $sha"
 "${compose[@]}" ps
