@@ -75,8 +75,30 @@ class CorrectionSummaryTest(unittest.TestCase):
             _clean_correction_summary(output)
         self.assertEqual(output, original)
 
-    def test_no_evidence_downgrade_preserves_summary(self):
+    def test_no_evidence_downgrade_replaces_summary(self):
         text = '네, 맞습니다. 2001년이 아니라 2002년입니다.'
         result = self.invoke(text, detail=False, refs=False)
         self.assertEqual(result['candidate_response_type'], 'insufficient_evidence')
-        self.assertEqual(result['summary'], text)
+        self.assertEqual(result['summary'], result['draft_message'])
+
+    def test_fallback_correction_survives_two_agreement_sentences(self):
+        for detail in (True, False):
+            with self.subTest(detail=detail):
+                result = self.invoke(None, detail=detail,
+                    body='네. 맞습니다. 2001년이 아니라 2002년에 개관했습니다.')
+                self.assertEqual(result['summary'], '2001년이 아니라 2002년에 개관했습니다.')
+
+    def test_invalid_correction_references_replace_summary(self):
+        result = self.invoke('2001년이 아니라 2002년입니다.', kind='corrected_premise', refs=False)
+        self.assertEqual(result['candidate_response_type'], 'insufficient_evidence')
+        self.assertEqual(result['summary'], result['draft_message'])
+
+    def test_unpunctuated_summary_and_body_are_allowed(self):
+        result = self.invoke('기록관은 2002년에 개관했습니다', detail=False,
+                             body='기록관은 2002년에 개관했습니다')
+        self.assertEqual(result['summary'], '기록관은 2002년에 개관했습니다')
+
+    def test_unfinished_summary_uses_final_body(self):
+        result = self.invoke('기록관은 개관하며', detail=False,
+                             body='기록관은 2002년에 개관했습니다')
+        self.assertEqual(result['summary'], '기록관은 2002년에 개관했습니다')

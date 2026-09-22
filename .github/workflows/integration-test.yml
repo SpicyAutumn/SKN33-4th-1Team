@@ -1,0 +1,63 @@
+name: Common integration test
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled, closed, ready_for_review, converted_to_draft]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: common-integration-test
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: >-
+      vars.INTEGRATION_TEST_ENABLED == 'true' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
+       (github.event.pull_request.head.repo.full_name == github.repository &&
+        (contains(github.event.pull_request.labels.*.name, 'preview') || github.event.label.name == 'preview')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # pull_request_target runs this controller from the trusted default branch.
+      # PR code is cloned and built only on the dedicated test EC2, without AWS/GitHub tokens.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate target configuration
+        env:
+          TEST_INSTANCE_ID: ${{ vars.TEST_INSTANCE_ID }}
+          PRODUCTION_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          TEST_DEPLOY_ROLE: ${{ vars.AWS_TEST_DEPLOY_ROLE_ARN }}
+          TEST_SITE_URL: ${{ vars.TEST_SITE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TEST_INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]
+          [[ "$TEST_INSTANCE_ID" != "$PRODUCTION_INSTANCE_ID" ]]
+          [[ "$TEST_SITE_URL" =~ ^http://[^/]+$ ]]
+          [[ -n "$TEST_DEPLOY_ROLE" && -n "${{ vars.AWS_REGION }}" ]]
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TEST_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: github-integration-test
+          retry-max-attempts: 2
+
+      - name: Reconcile the common integration site
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_INSTANCE_ID: ${{ vars.TEST_INSTANCE_ID }}
+          PRODUCTION_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          TEST_SITE_URL: ${{ vars.TEST_SITE_URL }}
+        run: python3 scripts/integration/dispatch.py
