@@ -102,6 +102,26 @@ def test_failed_migration_is_not_retried_and_sets_review_marker(tmp_path, monkey
     assert (tmp_path / "database-review-required.json").exists()
 
 
+def test_select_existing_clone_deployment(tmp_path, monkeypatch):
+    server = load_server()
+    monkeypatch.setattr(server, "ROOT", tmp_path)
+    (tmp_path / "deployment.json").write_text('{"deployment":"clone-lab"}')
+    (tmp_path / "clone-lab").mkdir()
+    (tmp_path / "clone-lab/.test-server").touch()
+    server.select_deployment()
+    assert server.ROOT == tmp_path / "clone-lab"
+    assert server.PROJECT == "heritage-db-clone"
+
+
+def test_invalid_deployment_selection_is_rejected(tmp_path, monkeypatch):
+    server = load_server()
+    monkeypatch.setattr(server, "ROOT", tmp_path)
+    (tmp_path / "deployment.json").write_text('{"deployment":"../production"}')
+    with pytest.raises(RuntimeError, match="Unsupported"):
+        server.select_deployment()
+    assert server.ROOT == tmp_path
+
+
 def test_no_preview_prs_still_deploys_main(tmp_path, monkeypatch):
     import base64
     import json

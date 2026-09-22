@@ -37,6 +37,22 @@ API_KEYS = {
 }
 
 
+def select_deployment() -> None:
+    """Use the host's explicit clone-lab selection, retaining its existing DB."""
+    global ROOT, PROJECT
+    config_path = ROOT / "deployment.json"
+    if not config_path.exists():
+        return
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if config != {"deployment": "clone-lab"}:
+        raise RuntimeError("Unsupported test deployment selection")
+    target = ROOT / "clone-lab"
+    if target.is_symlink() or not (target / ".test-server").is_file():
+        raise RuntimeError("Selected test deployment is missing its dedicated marker")
+    ROOT = target
+    PROJECT = "heritage-db-clone"
+
+
 def command(*args: str, cwd: Path | None = None, capture: bool = False) -> str:
     completed = subprocess.run(
         args, cwd=cwd, check=True, text=True, timeout=1800,
@@ -321,4 +337,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    select_deployment()
     main()

@@ -30,8 +30,10 @@ python scripts/integration/clone_database.py export --source-env /private/main.e
 
 서버의 `.test-server` 표식과 대상 EC2를 확인한다. 검토된 새 배포 컨트롤러를 먼저 설치한다.
 `pull_request_target` 워크플로는 main의 컨트롤러를 사용한다. 이 브랜치 PR에 preview 라벨을
-붙이는 것만으로 기존 main 컨트롤러가 바뀌지는 않는다. **인프라 변경을 main에 먼저 반영한 후**
-DB 정리 PR의 preview 배포를 진행한다. 인프라 변경은 운영 DB 스키마를 수정하지 않는다.
+붙이는 것만으로 기존 main 컨트롤러가 바뀌지는 않는다. 현재는 충돌 방지를 위해 기존 테스트
+워크플로를 비활성화했다. 주기 확인 타이머는 설치하지 않았다. 이벤트 기반 연결을 위한
+이 인프라 PR의 main 반영과 테스트 워크플로 재활성화가 필요하다.
+사용자 요청에 따라 지금은 PR 준비까지만 진행하며 main 병합과 운영 배포는 보류한다.
 
 신뢰하는 운영자가 치환된 snapshot.json만 서버에 전송하고 다음 위치에 둔다.
 
@@ -101,10 +103,16 @@ DB·백엔드·프런트엔드 health check 및 HTTP 응답을 확인했다.
 `/srv/heritage-test/clone-lab`, Compose 프로젝트 `heritage-db-clone`,
 볼륨 `heritage-db-clone_db`를 사용한다. 이 실행본은 preview PR 없이 유지된다.
 
-자동 배포 통합은 별도 전환이 필요하다. 현재 main의 기존 워크플로는 여전히
-`heritage-integration`을 대상으로 하므로 새 preview 배포를 실행하면 80번 포트가 충돌할 수 있다.
-이 인프라 변경을 main에 반영하고, 테스트 DB를 백업한 뒤 실행본의 경로·프로젝트·볼륨·
-자격 증명을 자동 배포 대상과 일치시키는 전환을 먼저 수행한다.
-전환 전에 기존 워크플로로 새 preview를 배포하지 않는다. 운영 DB에는 변경하지 않았다.
+테스트 호스트의 `/srv/heritage-test/deployment.json`에
+`{"deployment":"clone-lab"}`을 설정했다. 새 컨트롤러의 기본 진입점은 이 설정을 읽고
+기존 clone-lab 경로·프로젝트·볼륨·자격 증명을 그대로 사용한다.
+preview 없이 이 진입점으로 실제 재배포했고, 전후 SQL 덤프 SHA-256 일치와
+DB·백엔드·프런트엔드 health check를 확인했다.
+
+DB 정리·앱 변경은 테스트 서버에서 먼저 검증한다. 이 PR의 범위는 테스트 배포 인프라뿐이다.
+preview 이벤트를 처리하는 컨트롤러 연결을 위해 추후 인프라 PR 반영이 필요하다.
+main 병합은 현 운영 자동 배포도 실행하므로, 반영 시점에 운영 배포를 막는 절차를 별도 승인받는다.
+현재 운영 워크플로는 중지하거나 변경하지 않았으며 main도 변경하지 않았다.
+운영 DB에는 변경하지 않았다. 검증 후에도 비식별 테스트 데이터를 운영 DB에 역복사하지 않는다.
 
 preview PR이 0개여도 최신 main을 빌드·배포한다. 다만 PR의 DB 변경이 main 코드와 호환되지 않으면 자동 역마이그레이션하지 않는다. 실제 기능 확인 후 복구/다음 코드 배포를 결정한다.
