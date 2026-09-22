@@ -41,14 +41,27 @@ def _retrieval_module():
     return rag_client, retrieval
 
 
-def answer(question: str, *, audience_level: str) -> dict[str, Any]:
+def answer(
+    question: str,
+    *,
+    audience_level: str,
+    interaction_id: str | None = None,
+    clarification_context: dict[str, Any] | None = None,
+    selected_source_chunk_ids: list[str] | None = None,
+) -> dict[str, Any]:
     rag_client, retrieval = _retrieval_module()
     missing = rag_client.missing_env()
     if missing:
         raise RagUnavailableError("RAG environment is not configured: " + ", ".join(missing))
 
     try:
-        execution = retrieval.answer(question, audience_level=audience_level)
+        execution = retrieval.answer(
+            question,
+            audience_level=audience_level,
+            interaction_id=interaction_id,
+            clarification_context=clarification_context,
+            selected_source_chunk_ids=selected_source_chunk_ids,
+        )
     except Exception as exc:  # The API view keeps infrastructure detail out of the browser response.
         raise RagUnavailableError("RAG request failed.") from exc
 

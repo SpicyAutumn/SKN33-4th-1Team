@@ -93,6 +93,34 @@ class PineconeStoreTests(unittest.TestCase):
         self.assertEqual(retriever.search("없는 질문", top_k=3), [])
         self.assertEqual(retriever._index.query_kwargs["namespace"], "aks-test")
 
+    def test_fetch_by_ids_rebuilds_contexts_in_requested_order(self) -> None:
+        class FakeIndex:
+            def fetch(self, **kwargs: object) -> dict[str, object]:
+                self.kwargs = kwargs
+                return {
+                    "vectors": {
+                        "chosen-2": {"metadata": {
+                            "document_id": "aks:E2", "title": "둘째", "content": "둘째 본문",
+                            "source": "https://example.test/E2", "section": "definition",
+                        }},
+                        "chosen-1": {"metadata": {
+                            "document_id": "aks:E1", "title": "첫째", "content": "첫째 본문",
+                            "source": "https://example.test/E1", "section": "body",
+                        }},
+                    }
+                }
+
+        retriever = object.__new__(PineconeRetriever)
+        retriever._index = FakeIndex()
+        retriever.namespace = "aks-test"
+
+        results = retriever.fetch_by_ids(["chosen-1", "chosen-2", "chosen-1"])
+
+        self.assertEqual([item["chunk_id"] for item in results], ["chosen-1", "chosen-2"])
+        self.assertEqual([item["retrieval_rank"] for item in results], [1, 2])
+        self.assertTrue(all(item["score_type"] == "unknown" for item in results))
+        self.assertEqual(retriever._index.kwargs, {"ids": ["chosen-1", "chosen-2"], "namespace": "aks-test"})
+
     def test_search_assigns_rank_and_handles_missing_score_and_empty_fields(self) -> None:
         class FakeIndex:
             def query(self, **_: object) -> dict[str, object]:

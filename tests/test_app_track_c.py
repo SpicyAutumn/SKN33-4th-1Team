@@ -546,6 +546,37 @@ class RetrievalReuseTest(unittest.TestCase):
         self.assertIsNone(_reusable_contexts(last_result, "창덕궁이 뭐야?"))
         self.assertIsNone(_reusable_contexts(last_result, "경복궁이 뭐야?"))
 
+    def test_selected_source_is_pinned_before_new_search_results(self):
+        class Retriever:
+            def fetch_by_ids(self, chunk_ids):
+                return [context(chunk_id=chunk_ids[0], document_id="chosen", title="선택 인물")]
+
+            def search(self, question, *, top_k=3):
+                return [
+                    context(chunk_id="other", document_id="other", title="동명이인", rank=1),
+                    context(chunk_id="chosen-id", document_id="chosen", title="선택 인물", rank=2),
+                ]
+
+        retriever = retrieval._PinnedContextsRetriever(Retriever(), ["chosen-id"])
+
+        results = retriever.search("선택한 인물을 알려줘", top_k=3)
+
+        self.assertEqual([item["chunk_id"] for item in results], ["chosen-id", "other"])
+        self.assertEqual([item["retrieval_rank"] for item in results], [1, 2])
+
+    def test_missing_selected_source_fails_closed(self):
+        class Retriever:
+            def fetch_by_ids(self, chunk_ids):
+                return []
+
+            def search(self, question, *, top_k=3):
+                raise AssertionError("search must not run when the selected source is missing")
+
+        retriever = retrieval._PinnedContextsRetriever(Retriever(), ["missing"])
+
+        with self.assertRaisesRegex(RuntimeError, "not found"):
+            retriever.search("질문", top_k=3)
+
 
 class CompoundQuestionTest(unittest.TestCase):
     """팀 합의(2026-09-01): 여러 질문은 나눠 답하지 않고 하나만 물어봐 달라고 되돌려준다."""

@@ -529,6 +529,9 @@ class HybridWithSimilarity:
             item["score_type"] = "similarity" if score is not None else "unknown"
         return fused
 
+    def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        return self.dense.fetch_by_ids(chunk_ids)
+
 
 def build_retriever():
     """BM25 인덱스가 있으면 하이브리드, 없으면 Pinecone 단독으로 검색한다.

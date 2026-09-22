@@ -7,6 +7,7 @@ import SearchHistory from "./components/SearchHistory";
 import EvidenceSources from "./components/EvidenceSources";
 import ErrorReportBoard from "./components/ErrorReportBoard";
 import AdminErrorReportBoard from "./components/AdminErrorReportBoard";
+import { clarificationFollowup } from "./clarificationFollowup";
 
 const levels = [["easy", "초등학생"], ["general", "중·고등학생"], ["advanced", "성인 일반"]];
 const koreanDate = () => {
@@ -53,7 +54,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
       <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}>{(!result.savedRecord || result.summary) && <section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section>}<p ref={answerText} className="full-answer">{result.message}</p>
-        {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(`${question} (${option.label})`)}>{option.label}</button>)}</div></section>}
+        {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(clarificationFollowup(question, result, option))}>{option.label}</button>)}</div></section>}
         </AnswerMediaLayout>
         <EvidenceSources citations={citations} />
         {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
@@ -100,13 +101,20 @@ export default function App({ request = api } = {}) {
     } catch (error) { setAuthError(error.message); }
   };
   const askQuestion = async (nextQuestion, nextLevel = level) => {
-    const askedQuestion = nextQuestion.trim();
+    const followup = typeof nextQuestion === "string" ? { question: nextQuestion } : nextQuestion;
+    const askedQuestion = String(followup?.question || "").trim();
     if (!askedQuestion) return;
     const version = ++requestVersion.current;
     setHistoryPage(false); setReportBoardPage(false); setAdminReportPage(false); setLoadingRecord(false);
     setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
     try {
-      const answer = await request("searches", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: nextLevel }) });
+      const answer = await request("searches", { method: "POST", body: JSON.stringify({
+        question: askedQuestion,
+        audience_level: nextLevel,
+        ...(followup?.interaction_id ? { interaction_id: followup.interaction_id } : {}),
+        ...(followup?.selected_source_chunk_ids?.length ? { selected_source_chunk_ids: followup.selected_source_chunk_ids } : {}),
+        ...(followup?.clarification_context ? { clarification_context: followup.clarification_context } : {}),
+      }) });
       if (version !== requestVersion.current) return;
       setResult(answer);
       setHistoryVersion((value) => value + 1);
