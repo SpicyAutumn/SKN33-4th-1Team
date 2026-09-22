@@ -5,8 +5,9 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
+from django.core import signing
 from django.db import transaction
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -19,6 +20,8 @@ from .rag_runtime import RagUnavailableError, answer as rag_answer
 
 SESSION_COOKIE = "heritage_session"
 SESSION_DAYS = 7
+ADMIN_SESSION_COOKIE = "heritage_admin_session"
+ADMIN_SESSION_SECONDS = 8 * 60 * 60
 LEVELS = {"easy", "general", "advanced"}
 REPORT_CATEGORIES = {"incorrect_fact", "citation_mismatch", "incomplete_answer", "inappropriate_content", "other"}
 REPORT_STATUSES = {"received", "reviewing", "completed"}
@@ -62,13 +65,36 @@ def _require_session(request):
     return session, None
 
 
+def _admin_session_is_valid(request):
+    token = request.COOKIES.get(ADMIN_SESSION_COOKIE, "")
+    if not token:
+        return False
+    try:
+        return signing.TimestampSigner(salt="heritage-admin-dashboard").unsign(token, max_age=ADMIN_SESSION_SECONDS) == "dashboard"
+    except (signing.BadSignature, signing.SignatureExpired):
+        return False
+
+
 def _require_admin(request):
-    session, error = _require_session(request)
-    if error:
-        return None, error
-    if session.user.role != "admin":
-        return None, _error("ADMIN_REQUIRED", "관리자만 이용할 수 있습니다.", 403)
-    return session, None
+    if not settings.ADMIN_DASHBOARD_PASSWORD:
+        return None, _error("ADMIN_PASSWORD_NOT_CONFIGURED", "관리자 비밀번호가 설정되지 않았습니다.", 503)
+    if not _admin_session_is_valid(request):
+        return None, _error("ADMIN_PASSWORD_REQUIRED", "관리자 비밀번호를 입력해 주세요.", 401)
+    return True, None
+
+
+def _set_admin_session_cookie(response):
+    token = signing.TimestampSigner(salt="heritage-admin-dashboard").sign("dashboard")
+    response.set_cookie(
+        ADMIN_SESSION_COOKIE,
+        token,
+        max_age=ADMIN_SESSION_SECONDS,
+        httponly=True,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite="Lax",
+        path="/",
+    )
+    return response
 
 
 def _set_session_cookie(response, user):
@@ -146,6 +172,33 @@ def health(_request):
 @require_GET
 def csrf(_request):
     return JsonResponse({"csrf_token": get_token(_request)})
+
+
+@require_GET
+def admin_session(request):
+    if not settings.ADMIN_DASHBOARD_PASSWORD:
+        return _error("ADMIN_PASSWORD_NOT_CONFIGURED", "관리자 비밀번호가 설정되지 않았습니다.", 503)
+    return JsonResponse({"authenticated": _admin_session_is_valid(request)})
+
+
+@require_POST
+def admin_login(request):
+    if not settings.ADMIN_DASHBOARD_PASSWORD:
+        return _error("ADMIN_PASSWORD_NOT_CONFIGURED", "관리자 비밀번호가 설정되지 않았습니다.", 503)
+    payload = _payload(request)
+    if payload is None:
+        return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
+    password = str(payload.get("password", ""))
+    if not secrets.compare_digest(password, settings.ADMIN_DASHBOARD_PASSWORD):
+        return _error("INVALID_ADMIN_PASSWORD", "관리자 비밀번호를 확인해 주세요.", 401)
+    return _set_admin_session_cookie(JsonResponse({"authenticated": True}))
+
+
+@require_POST
+def admin_logout(request):
+    response = JsonResponse({}, status=204)
+    response.delete_cookie(ADMIN_SESSION_COOKIE, path="/")
+    return response
 
 
 @require_POST
@@ -324,9 +377,116 @@ def _admin_report_data(report, detail=False):
     return data
 
 
+def _dashboard_recent_users(limit=6, offset=0):
+    """Return one most-recent active session per user for the operator dashboard."""
+    sessions = AuthSession.objects.select_related("user").filter(
+        revoked_at__isnull=True,
+        last_seen_at__isnull=False,
+    ).order_by("-last_seen_at", "-created_at")
+    users = []
+    seen_user_ids = set()
+    for item in sessions.iterator():
+        if item.user_id in seen_user_ids:
+            continue
+        seen_user_ids.add(item.user_id)
+        if len(seen_user_ids) <= offset:
+            continue
+        users.append({
+            "id": str(item.user_id),
+            "name": item.user.name,
+            "email": item.user.email,
+            "last_seen_at": item.last_seen_at.isoformat(),
+            "signed_in_at": item.created_at.isoformat(),
+        })
+        if len(users) == limit:
+            break
+    return users
+
+
+@require_GET
+def admin_dashboard(request):
+    _session, error = _require_admin(request)
+    if error:
+        return error
+    recent_users = _dashboard_recent_users()
+    report_counts = ErrorReport.objects.aggregate(
+        total=Count("id"),
+        received=Count("id", filter=Q(status="received")),
+        reviewing=Count("id", filter=Q(status="reviewing")),
+        completed=Count("id", filter=Q(status="completed")),
+    )
+    reports = ErrorReport.objects.select_related("owner", "search_record", "handled_by").order_by("-created_at", "-id")[:6]
+    searches = SearchRecord.objects.select_related("owner").order_by("-created_at", "-id")[:10]
+
+    return JsonResponse({
+        "summary": {
+            "total_reports": report_counts["total"],
+            "received_reports": report_counts["received"],
+            "reviewing_reports": report_counts["reviewing"],
+            "completed_reports": report_counts["completed"],
+            "total_searches": SearchRecord.objects.count(),
+            "recent_user_count": len(recent_users),
+        },
+        "recent_reports": [_admin_report_data(item) for item in reports],
+        "recent_users": recent_users,
+        "recent_searches": [{
+            "id": str(item.id),
+            "question": item.question,
+            "audience_level": item.audience_level,
+            "response_type": item.response_type,
+            "user_name": item.owner.name,
+            "user_email": item.owner.email,
+            "created_at": item.created_at.isoformat(),
+        } for item in searches],
+    })
+
+
+@require_GET
+def admin_users(request):
+    _session, error = _require_admin(request)
+    if error:
+        return error
+    try:
+        limit = min(max(int(request.GET.get("limit", 20)), 1), 100)
+        offset = max(int(request.GET.get("offset", 0)), 0)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "목록 범위를 확인해 주세요.", 422)
+
+    active_sessions = AuthSession.objects.filter(revoked_at__isnull=True, last_seen_at__isnull=False)
+    total = active_sessions.values("user_id").distinct().count()
+    return JsonResponse({"items": _dashboard_recent_users(limit=limit, offset=offset), "total": total})
+
+
+@require_GET
+def admin_searches(request):
+    _access, error = _require_admin(request)
+    if error:
+        return error
+    try:
+        limit = min(max(int(request.GET.get("limit", 20)), 1), 100)
+        offset = max(int(request.GET.get("offset", 0)), 0)
+    except ValueError:
+        return _error("VALIDATION_ERROR", "목록 범위를 확인해 주세요.", 422)
+
+    records = SearchRecord.objects.select_related("owner").order_by("-created_at", "-id")
+    items = records[offset:offset + limit]
+    return JsonResponse({
+        "items": [{
+            "id": str(item.id),
+            "question": item.question,
+            "audience_level": item.audience_level,
+            "response_type": item.response_type,
+            "user_name": item.owner.name,
+            "user_email": item.owner.email,
+            "created_at": item.created_at.isoformat(),
+        } for item in items],
+        "total": records.count(),
+    })
+
+
 @require_GET
 def admin_error_reports(request):
-    session, error = _require_admin(request)
+    _access, error = _require_admin(request)
     if error:
         return error
     status = request.GET.get("status", "all")
@@ -350,7 +510,7 @@ def admin_error_reports(request):
 
 @require_http_methods(["GET", "PATCH"])
 def admin_error_report_detail(request, report_id):
-    session, error = _require_admin(request)
+    _access, error = _require_admin(request)
     if error:
         return error
     report = ErrorReport.objects.select_related("owner", "search_record", "handled_by").filter(id=report_id).first()
@@ -369,7 +529,7 @@ def admin_error_report_detail(request, report_id):
         return _error("VALIDATION_ERROR", "처리 완료 시 담당자 답변을 10자 이상 입력해 주세요.", 422)
     report.status = status
     report.staff_reply = staff_reply or None
-    report.handled_by = session.user
+    report.handled_by = None
     report.handled_at = timezone.now()
     report.save(update_fields=["status", "staff_reply", "handled_by", "handled_at", "updated_at"])
     return JsonResponse(_admin_report_data(report, detail=True))
