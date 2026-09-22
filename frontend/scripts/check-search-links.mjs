@@ -11,13 +11,25 @@ const answers = new Map();
 let searches = 0;
 let shared = false;
 const errors = [];
-async function mock(context, owner, member = false) {
+async function mock(context, owner, member = false, admin = false) {
   await context.route("**/api/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname.replace("/api/v1/", "");
     const send = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "auth/csrf") return route.fulfill({ contentType: "application/json", headers: { "set-cookie": "csrftoken=test; Path=/" }, body: "{}" });
     if (path === "auth/me") return member ? send({ id: "member", name: "테스트", email: "test@example.com" }) : send({}, 401);
     if (path === "me/searches" && member) return send({ items: [{ ...answers.get(first), id: first, created_at: "2026-09-22T00:00:00Z" }] });
+    if (admin && path === "admin/session") return send({ authenticated: true });
+    if (admin && path === "admin/dashboard") return send({
+      summary: { total_reports: 0, received_reports: 0, reviewing_reports: 0, completed_reports: 0 },
+      recent_reports: [], recent_users: [], recent_searches: [{ ...answers.get(first), id: first, user_name: "테스트", created_at: "2026-09-22T00:00:00Z" }],
+    });
+    if (admin && path === "admin/searches") {
+      const offset = new URL(route.request().url()).searchParams.get("offset");
+      return send({ total: 21, items: [{ ...answers.get(first), id: first,
+        question: offset === "20" ? "관리자 목록 두 번째 페이지" : answers.get(first).question,
+        user_name: "테스트", user_email: "test@example.com", created_at: "2026-09-22T00:00:00Z" }] });
+    }
+    if (admin && path === `admin/searches/${first}`) return send({ ...answers.get(first), id: first });
     if (path === "searches") {
       searches++;
       const input = route.request().postDataJSON();
@@ -97,6 +109,37 @@ try {
   await memberPage.getByText("저장된 답변 1", { exact: true }).waitFor();
   await memberPage.getByRole("button", { name: "← 나의 검색기록으로 돌아가기", exact: true }).click();
   await memberPage.getByRole("heading", { name: "나의 검색 기록", exact: true }).waitFor();
+  // main's admin navigation remains read-only and uses only the admin endpoint.
+  const searchCountBeforeAdmin = searches;
+  const adminContext = await browser.newContext();
+  await mock(adminContext, false, false, true);
+  const adminPage = await adminContext.newPage();
+  adminPage.on("pageerror", error => errors.push(error.message));
+  await adminPage.goto(`${base}/admin`);
+  await adminPage.getByRole("button", { name: /경복궁은 왜 지어졌나요/ }).click();
+  await adminPage.waitForURL(`**/admin/searches/${first}`);
+  await adminPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  for (const name of ["초등학생", "중·고등학생", "성인 일반"]) {
+    assert.equal(await adminPage.getByRole("button", { name, exact: true }).isDisabled(), true);
+  }
+  assert.equal(await adminPage.getByRole("button", { name: "링크 공유", exact: true }).count(), 0);
+  await adminPage.reload();
+  await adminPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await adminPage.goBack();
+  await adminPage.getByRole("heading", { name: "운영 대시보드", exact: true }).waitFor();
+  await adminPage.goForward();
+  await adminPage.getByText("저장된 답변 1", { exact: true }).waitFor();
+  await adminPage.getByRole("button", { name: "← 관리자 검색기록으로 돌아가기", exact: true }).click();
+  await adminPage.getByRole("heading", { name: "전체 검색 기록", exact: true }).waitFor();
+  await adminPage.getByRole("button", { name: "다음", exact: true }).click();
+  await adminPage.getByRole("button", { name: /관리자 목록 두 번째 페이지/ }).waitFor();
+  await adminPage.getByRole("button", { name: "이전", exact: true }).click();
+  await adminPage.getByRole("button", { name: /경복궁은 왜 지어졌나요/ }).waitFor();
+  await adminPage.getByRole("link", { name: "이용약관", exact: true }).click();
+  await adminPage.getByRole("dialog", { name: "이용약관", exact: true }).waitFor();
+  await adminPage.getByRole("button", { name: "문서 닫기", exact: true }).click();
+  assert.equal(new URL(adminPage.url()).pathname, "/admin/searches");
+  assert.equal(searches, searchCountBeforeAdmin, "admin review must not generate answers");
   assert.deepEqual(errors, []);
-  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links stale response cancellation and mypage history/refresh/navigation");
+  console.log("PASS: search URL, reload, level change, back/forward, explicit sharing, anonymous/mobile access, denied/invalid links stale response cancellation mypage history/refresh/navigation, admin read-only/detail/pagination navigation and legal modal");
 } finally { await browser.close(); }

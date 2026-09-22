@@ -1,0 +1,5 @@
+.dashboard-searches li { padding: 0; }
+.dashboard-searches li > button { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 65px; padding: 12px 20px; background: #fff; color: inherit; text-align: left; }
+.dashboard-searches li > button:hover { background: #f1f8f3; }
+.dashboard-searches li > button > div { min-width: 0; flex: 1; display: grid; gap: 4px; }
+@media (max-width: 600px) { .dashboard-searches li > button { padding-left: 15px; padding-right: 15px; } }
