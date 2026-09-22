@@ -17,6 +17,12 @@ urlpatterns = [
     path("v1/me/searches/<uuid:record_id>", views.my_search_detail),
     path("v1/me/error-reports", views.error_reports),
     path("v1/me/error-reports/<uuid:report_id>", views.my_error_report_detail),
+    path("v1/admin/session", views.admin_session),
+    path("v1/admin/login", views.admin_login),
+    path("v1/admin/logout", views.admin_logout),
+    path("v1/admin/dashboard", views.admin_dashboard),
+    path("v1/admin/users", views.admin_users),
+    path("v1/admin/searches", views.admin_searches),
     path("v1/admin/error-reports", views.admin_error_reports),
     path("v1/admin/error-reports/<uuid:report_id>", views.admin_error_report_detail),
 ]

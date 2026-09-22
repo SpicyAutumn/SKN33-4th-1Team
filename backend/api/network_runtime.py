@@ -42,10 +42,17 @@ def build_network(document_id: str) -> dict[str, Any] | None:
     graph = _graph_module()
     try:
         # 기본 탐색은 외부 검색/생성 서비스 및 비밀 설정에 의존하지 않는다.
-        payload = graph.build_map(document_id, neighbors=None)
+        payload = _recommendations().build(document_id)
         return {**payload, "mode": "catalog"} if payload else None
     except Exception as exc:
         raise HeritageNetworkUnavailableError("Heritage network request failed.") from exc
+
+
+@lru_cache(maxsize=1)
+def _recommendations():
+    graph = _graph_module()
+    from heritage_recommendations import Recommendations
+    return Recommendations(graph.catalog())
 
 
 @lru_cache(maxsize=256)
@@ -60,7 +67,8 @@ def build_network_for_question(question: str, document_ids: tuple[str, ...]) -> 
             return {"mode": "catalog", "requires_selection": True,
                     "candidate_count": len(candidates),
                     "candidates": [{"document_id": entry.document_id, "title": entry.title,
-                                    "field": entry.field, "item_type": entry.item_type}
+                                    "field": entry.field, "item_type": entry.item_type,
+                                    "keywords": list(entry.keywords[:4])}
                                    for entry in candidates[:20]]}
         return build_network(candidates[0].document_id)
     except Exception as exc:

@@ -11,6 +11,8 @@ from rag_service.ollama_generator import (
     _keep_alive_value,
     _normalize_corrected_premise,
     _repair_chunk_ids,
+    _sanitize_internal_context_refs,
+    _sanitize_user_facing_text,
 )
 
 
@@ -47,6 +49,39 @@ def generation_request() -> dict:
 
 
 class OllamaGeneratorTest(unittest.TestCase):
+    def test_sanitizes_internal_context_references_from_user_text(self) -> None:
+        cases = {
+            "검색된 문맥(CTX-1, CTX-2)은 수원 화성의 배경을 설명합니다.":
+                "검색된 자료에 따르면 수원 화성의 배경을 설명합니다.",
+            "CTX-1에 따르면 정조가 건설했습니다.":
+                "검색된 자료에 따르면 정조가 건설했습니다.",
+            "수원 화성은 1796년에 완성되었습니다. [CTX-1]":
+                "수원 화성은 1796년에 완성되었습니다.",
+        }
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(_sanitize_internal_context_refs(raw), expected)
+
+    def test_sanitizing_visible_text_preserves_source_id_fields(self) -> None:
+        output = {
+            "summary": "검색된 문맥(CTX-1)은 근거를 제공합니다.",
+            "draft_message": "설명입니다. [CTX-1]",
+            "used_chunk_ids": ["CTX-1"],
+            "clarification": None,
+            "premise_correction": {
+                "original_premise": "기존 주장 [CTX-1]",
+                "corrected_premise": "바른 내용입니다. [CTX-1]",
+                "source_chunk_ids": ["CTX-1"],
+            },
+        }
+
+        _sanitize_user_facing_text(output)
+
+        self.assertNotIn("CTX-", output["summary"])
+        self.assertNotIn("CTX-", output["draft_message"])
+        self.assertEqual(output["used_chunk_ids"], ["CTX-1"])
+        self.assertEqual(output["premise_correction"]["source_chunk_ids"], ["CTX-1"])
+
     def test_prompt_treats_explicit_causal_background_as_answer_evidence(self) -> None:
         self.assertIn("원인·계기·이전 계획·정치적 배경", SYSTEM_PROMPT)
         self.assertIn("정확히 `목적`이라는 낱말이 없다는 이유만으로", SYSTEM_PROMPT)

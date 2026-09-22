@@ -549,11 +549,6 @@ class HybridWithSimilarity:
     def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
         return self.dense.fetch_by_ids(chunk_ids)
 
-    def search_documents(
-        self, question: str, *, document_ids: list[str], top_k: int = 5
-    ) -> list[dict[str, Any]]:
-        return self.dense.search_documents(question, document_ids=document_ids, top_k=top_k)
-
 
 def build_retriever():
     """BM25 인덱스가 있으면 하이브리드, 없으면 Pinecone 단독으로 검색한다.

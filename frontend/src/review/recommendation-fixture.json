@@ -1,0 +1,411 @@
+{
+  "choice": {
+    "mode": "catalog",
+    "requires_selection": true,
+    "candidate_count": 4,
+    "candidates": [
+      {
+        "document_id": "aks:E0044900",
+        "title": "이순신",
+        "field": "역사/조선시대사",
+        "item_type": "인물/전통 인물",
+        "keywords": [
+          "여해(汝諧)",
+          "충무(忠武)"
+        ]
+      },
+      {
+        "document_id": "aks:E0044901",
+        "title": "이순신",
+        "field": "역사/조선시대사",
+        "item_type": "인물/전통 인물",
+        "keywords": [
+          "구수",
+          "양녕대군",
+          "이귀달",
+          "이윤의"
+        ]
+      },
+      {
+        "document_id": "aks:E0044902",
+        "title": "이순신",
+        "field": "문학/현대문학",
+        "item_type": "작품/문학",
+        "keywords": [
+          "신문_연재",
+          "신채호",
+          "영웅서사",
+          "이순신"
+        ]
+      },
+      {
+        "document_id": "aks:E0044903",
+        "title": "이순신",
+        "field": "문학/현대문학",
+        "item_type": "작품/문학",
+        "keywords": [
+          "거북선",
+          "민족영웅",
+          "이순신_유적_보존_운동",
+          "임진왜란"
+        ]
+      }
+    ]
+  },
+  "maps": {
+    "aks:E0044900": {
+      "root": {
+        "document_id": "aks:E0044900",
+        "title": "이순신",
+        "fields": [
+          [
+            "시대",
+            "조선/조선 전기 | 조선/조선 후기"
+          ],
+          [
+            "분야",
+            "역사/조선시대사"
+          ],
+          [
+            "유형",
+            "인물/전통 인물"
+          ]
+        ],
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0044900"
+      },
+      "branches": [
+        {
+          "title": "자료에 이름이 언급된 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0069065",
+              "title": "이순신 관련 고문서",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "언론·출판/출판",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0069065"
+            },
+            {
+              "document_id": "aks:E0046282",
+              "title": "이순신 난중일기 및 서간첩 임진장초",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046282"
+            },
+            {
+              "document_id": "aks:E0046284",
+              "title": "이순신 유물 일괄",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/공예",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046284"
+            },
+            {
+              "document_id": "aks:E0074142",
+              "title": "충무공 이순신 장군 동상",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/조각",
+              "period": "현대",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0074142"
+            },
+            {
+              "document_id": "aks:E0000689",
+              "title": "감경인",
+              "reason": "주제어에 ‘이순신’ 표기",
+              "item_type": "인물/전통 인물",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000689"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    },
+    "aks:E0044901": {
+      "root": {
+        "document_id": "aks:E0044901",
+        "title": "이순신",
+        "fields": [
+          [
+            "시대",
+            "조선/조선 전기 | 조선/조선 후기"
+          ],
+          [
+            "분야",
+            "역사/조선시대사"
+          ],
+          [
+            "유형",
+            "인물/전통 인물"
+          ]
+        ],
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0044901"
+      },
+      "branches": [
+        {
+          "title": "자료에 이름이 언급된 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0069065",
+              "title": "이순신 관련 고문서",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "언론·출판/출판",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0069065"
+            },
+            {
+              "document_id": "aks:E0046282",
+              "title": "이순신 난중일기 및 서간첩 임진장초",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046282"
+            },
+            {
+              "document_id": "aks:E0046284",
+              "title": "이순신 유물 일괄",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/공예",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046284"
+            },
+            {
+              "document_id": "aks:E0074142",
+              "title": "충무공 이순신 장군 동상",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/조각",
+              "period": "현대",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0074142"
+            },
+            {
+              "document_id": "aks:E0000689",
+              "title": "감경인",
+              "reason": "주제어에 ‘이순신’ 표기 · 공통 주제어: 임진왜란",
+              "item_type": "인물/전통 인물",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000689"
+            }
+          ]
+        },
+        {
+          "title": "공통 주제어가 있는 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0046258",
+              "title": "이축",
+              "reason": "공통 주제어: 완산군(完山君), 양녕대군",
+              "item_type": "인물/전통 인물",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046258"
+            },
+            {
+              "document_id": "aks:E0044429",
+              "title": "이보",
+              "reason": "공통 주제어: 이진, 임진왜란",
+              "item_type": "인물/전통 인물",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0044429"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    },
+    "aks:E0044902": {
+      "root": {
+        "document_id": "aks:E0044902",
+        "title": "이순신",
+        "fields": [
+          [
+            "시대",
+            "근대/대한제국기"
+          ],
+          [
+            "분야",
+            "문학/현대문학"
+          ],
+          [
+            "유형",
+            "작품/문학"
+          ]
+        ],
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0044902"
+      },
+      "branches": [
+        {
+          "title": "자료에 이름이 언급된 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0069065",
+              "title": "이순신 관련 고문서",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "언론·출판/출판",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0069065"
+            },
+            {
+              "document_id": "aks:E0046282",
+              "title": "이순신 난중일기 및 서간첩 임진장초",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046282"
+            },
+            {
+              "document_id": "aks:E0046284",
+              "title": "이순신 유물 일괄",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/공예",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046284"
+            },
+            {
+              "document_id": "aks:E0074142",
+              "title": "충무공 이순신 장군 동상",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/조각",
+              "period": "현대",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0074142"
+            },
+            {
+              "document_id": "aks:E0000689",
+              "title": "감경인",
+              "reason": "주제어에 ‘이순신’ 표기 · 공통 주제어: 이순신, 임진왜란",
+              "item_type": "인물/전통 인물",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000689"
+            }
+          ]
+        },
+        {
+          "title": "공통 주제어가 있는 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0042970",
+              "title": "을지문덕",
+              "reason": "공통 주제어: 영웅서사, 전기, 신채호",
+              "item_type": "작품/문학",
+              "field": "문학/현대문학",
+              "period": "근대/대한제국기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0042970"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    },
+    "aks:E0044903": {
+      "root": {
+        "document_id": "aks:E0044903",
+        "title": "이순신",
+        "fields": [
+          [
+            "시대",
+            "근대/일제강점기"
+          ],
+          [
+            "분야",
+            "문학/현대문학"
+          ],
+          [
+            "유형",
+            "작품/문학"
+          ]
+        ],
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0044903"
+      },
+      "branches": [
+        {
+          "title": "자료에 이름이 언급된 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0069065",
+              "title": "이순신 관련 고문서",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "언론·출판/출판",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0069065"
+            },
+            {
+              "document_id": "aks:E0046282",
+              "title": "이순신 난중일기 및 서간첩 임진장초",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "문헌/고서",
+              "field": "역사/조선시대사",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046282"
+            },
+            {
+              "document_id": "aks:E0046284",
+              "title": "이순신 유물 일괄",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/공예",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0046284"
+            },
+            {
+              "document_id": "aks:E0074142",
+              "title": "충무공 이순신 장군 동상",
+              "reason": "제목에 ‘이순신’ 표기",
+              "item_type": "작품/조각·공예",
+              "field": "예술·체육/조각",
+              "period": "현대",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0074142"
+            },
+            {
+              "document_id": "aks:E0076137",
+              "title": "아산 성웅이순신축제",
+              "reason": "주제어에 ‘이순신’ 표기 · 공통 주제어: 거북선, 임진왜란",
+              "item_type": "의례·행사/행사",
+              "field": "생활/민속·인류",
+              "period": "현대",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0076137"
+            }
+          ]
+        },
+        {
+          "title": "공통 주제어가 있는 항목",
+          "note": "목록의 표기상 연결이며, 실제 관계는 원문에서 확인해 주세요. 같은 이름의 다른 인물·자료가 포함될 수 있어요.",
+          "nodes": [
+            {
+              "document_id": "aks:E0011310",
+              "title": "나대용 생가 및 묘소",
+              "reason": "공통 주제어: 거북선, 임진왜란",
+              "item_type": "유적/건물",
+              "field": "생활/주생활",
+              "period": "조선/조선 후기",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0011310"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    }
+  }
+}

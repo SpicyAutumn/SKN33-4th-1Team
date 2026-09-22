@@ -19,24 +19,13 @@ _INTRODUCTION = re.compile(
     r"(?:알려줘|알려주세요|설명해줘|설명해주세요)"
     r"|(?:은|는)?\s*(?:누구야|누구인가요|어떤\s*사람이야))?\s*[?.!]?\s*$"
 )
-_NAME_INTRODUCTION = re.compile(
-    r"^\s*(?P<name>[가-힣]{2,5}?)"
-    r"\s*(?:(?:(?:에\s*대해(?:서)?)\s*)?"
-    r"(?:알려줘|알려주세요|설명해줘|설명해주세요)"
-    r"|(?:은|는)?\s*(?:누구야|누구인가요|어떤\s*사람이야))?\s*[?.!]?\s*$"
-)
 _MILITARY = re.compile(r"(?:장군|장수|무신|수군통제사|절도사)(?=[\s,.。]|$)")
 _MONARCH = re.compile(r"(?:왕|국왕|황제|임금)[.。]?\s*$")
 
 
 def person_introduction(question: str) -> tuple[str, str] | None:
     match = _INTRODUCTION.fullmatch(question)
-    if match:
-        return match.group("name"), match.group("honorific")
-    match = _NAME_INTRODUCTION.fullmatch(question)
-    # This only proposes an exact catalogue lookup. _search still requires
-    # matching person records; a short Korean word is not assumed to be a name.
-    return (match.group("name"), "") if match else None
+    return (match.group("name"), match.group("honorific")) if match else None
 
 
 def person_option_label(context: dict[str, Any]) -> str:
@@ -85,7 +74,7 @@ class PersonDocumentStore:
 
 
 class PersonTitleRetriever:
-    """Resolve name/honorific introductions using definitions, then fetch body.
+    """Resolve honorific introductions using existing definitions, then fetch body.
 
     No fuzzy name or popularity-based disambiguation. Multiple compatible people
     are marked for the application's deterministic clarification flow. Without a
@@ -100,32 +89,8 @@ class PersonTitleRetriever:
         return self._search(question, top_k=top_k)
 
     def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
-        """Preserve exact source lookup through the outer service wrapper."""
+        """Forward selected-source lookup through the outer retriever wrapper."""
         return self.retriever.fetch_by_ids(chunk_ids)
-
-    def search_documents(
-        self, question: str, *, document_ids: list[str], top_k: int = 5
-    ) -> list[dict[str, Any]]:
-        """Expand an explicit selection without parsing the rewritten UI label.
-
-        Reuse the catalogue's definition/body lookup. If a document is absent
-        locally, search only that document in the remote index instead.
-        """
-        contexts = []
-        missing = []
-        for document_id in dict.fromkeys(document_ids):
-            chunks = (
-                self.document_store.document_chunks(document_id, top_k=top_k)
-                if self.document_store is not None else []
-            )
-            contexts.extend(chunks)
-            if not any(c.get("section") == "body" for c in chunks):
-                missing.append(document_id)
-        if missing:
-            contexts.extend(self.retriever.search_documents(
-                question, document_ids=missing, top_k=top_k
-            ))
-        return contexts
 
     def search_with_clarification(
         self, question: str, *, clarification_context: dict[str, Any], top_k: int = 5
