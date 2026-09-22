@@ -189,11 +189,17 @@ def test_invalid_selection_does_not_guess_or_send_mixed_people_to_model(store):
 @pytest.mark.parametrize("mode", ["hybrid", "dense"])
 @pytest.mark.parametrize("document_id", ["admiral", "homonym"])
 def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode, document_id):
-    """A UI selection must reach generation through the real retriever wrappers."""
+    """A UI selection must expand to body evidence without mixing namesakes."""
     chosen = next(c for c in store.definitions("이순신") if c["document_id"] == document_id)
+    other_id = "homonym" if document_id == "admiral" else "admiral"
     dense = Mock()
-    dense.search.return_value = [deepcopy(chosen)]
+    dense.search.return_value = store.document_chunks(other_id, top_k=3)
     dense.fetch_by_ids.return_value = [deepcopy(chosen)]
+    dense.search_documents.side_effect = lambda question, *, document_ids, top_k: [
+        context for selected_id in document_ids
+        for context in store.document_chunks(selected_id, top_k=top_k)
+        if context["section"] == "body"
+    ]
     monkeypatch.setattr("rag_indexing.pinecone_store.PineconeRetriever", lambda: dense)
     path = store.database_path if mode == "hybrid" else store.database_path.with_name("absent.sqlite3")
     monkeypatch.setattr(rag_client, "bm25_index_path", lambda: path)
@@ -213,4 +219,11 @@ def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode
     dense.fetch_by_ids.assert_called_once_with([chosen["chunk_id"]])
     generator.invoke.assert_called_once()
     assert result["response"]["response_type"] == "answered"
-    assert result["retrieved_contexts"][0]["chunk_id"] == chosen["chunk_id"]
+    contexts = result["retrieved_contexts"]
+    assert {context["document_id"] for context in contexts} == {document_id}
+    assert [context["section"] for context in contexts] == ["definition", "body"]
+    dense.search.assert_not_called()
+    if mode == "hybrid":
+        dense.search_documents.assert_not_called()
+    else:
+        dense.search_documents.assert_called_once()

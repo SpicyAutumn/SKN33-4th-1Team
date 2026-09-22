@@ -92,6 +92,26 @@ class PersonTitleRetriever:
         """Forward selected-source lookup through the outer retriever wrapper."""
         return self.retriever.fetch_by_ids(chunk_ids)
 
+    def search_documents(
+        self, question: str, *, document_ids: list[str], top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        """Expand a structured selection only inside its selected documents."""
+        contexts = []
+        missing = []
+        for document_id in dict.fromkeys(document_ids):
+            chunks = (
+                self.document_store.document_chunks(document_id, top_k=top_k)
+                if self.document_store is not None else []
+            )
+            contexts.extend(chunks)
+            if not any(context.get("section") == "body" for context in chunks):
+                missing.append(document_id)
+        if missing:
+            contexts.extend(self.retriever.search_documents(
+                question, document_ids=missing, top_k=top_k
+            ))
+        return contexts
+
     def search_with_clarification(
         self, question: str, *, clarification_context: dict[str, Any], top_k: int = 5
     ) -> list[dict[str, Any]]:
