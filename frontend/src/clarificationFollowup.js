@@ -12,3 +12,12 @@ export function clarificationFollowup(question, result, option) {
     },
   };
 }
+
+export function levelChangeRequest(activeRequest, displayedQuestion) {
+  const question = String(displayedQuestion || "").trim();
+  if (activeRequest && typeof activeRequest === "object"
+      && String(activeRequest.question || "").trim() === question) {
+    return activeRequest;
+  }
+  return question;
+}

@@ -71,11 +71,29 @@ def test_military_role_can_be_in_a_longer_official_title(store, question):
     assert any(c["section"] == "body" for c in result)
 
 
-def test_homonyms_are_offered_without_mixing_bodies_or_novels(store):
-    result = PersonTitleRetriever(BaseRetriever(), store).search("이순신 장군", top_k=3)
+@pytest.mark.parametrize("question", ["이순신", "이순신에 대해 알려줘", "이순신 장군",
+                                    "이순신은 누구야?", "이순신 알려주세요"])
+def test_homonyms_are_offered_without_mixing_bodies_or_novels(store, question):
+    result = PersonTitleRetriever(BaseRetriever(), store).search(question, top_k=3)
     assert {c["document_id"] for c in result} == {"admiral", "homonym"}
     assert all(c["section"] == "definition" for c in result)
     assert len(person_clarification(result)["options"]) == 2
+
+
+@pytest.mark.parametrize("level", ["easy", "general", "advanced"])
+def test_bare_homonym_requires_the_same_clarification_at_every_level(store, level):
+    generator = Mock()
+    service = RagService(
+        retriever=PersonTitleRetriever(BaseRetriever(), store),
+        generator=rag_client.CompoundAwareGenerator(generator),
+        evidence_checker=rag_client.ContentEvidenceChecker(),
+    )
+
+    result = service.answer("이순신", audience_level=level)
+
+    assert result["response_type"] == "needs_clarification"
+    assert len(result["clarification"]["options"]) == 2
+    generator.invoke.assert_not_called()
 
 
 def test_short_name_exact_lookup_recovers_both_people(store):
@@ -92,7 +110,7 @@ def test_top_one_does_not_hide_known_ambiguity(store):
 
 
 @pytest.mark.parametrize("question", ["경복궁에 대해 알려줘", "훈민정음은 누가 만들었어?",
-    "임진왜란은 언제 일어났어?", "이순신", "장군의 역할", "이순몽 장군 묘",
+    "임진왜란은 언제 일어났어?", "장군의 역할", "이순몽 장군 묘",
     "이순신 장군의 사망 연도", "이순신 장군과 강감찬 장군 비교"])
 def test_unrelated_queries_are_unchanged(store, question):
     base = BaseRetriever()
@@ -189,11 +207,17 @@ def test_invalid_selection_does_not_guess_or_send_mixed_people_to_model(store):
 @pytest.mark.parametrize("mode", ["hybrid", "dense"])
 @pytest.mark.parametrize("document_id", ["admiral", "homonym"])
 def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode, document_id):
-    """A UI selection must reach generation through the real retriever wrappers."""
+    """A UI selection must expand to body evidence without mixing namesakes."""
     chosen = next(c for c in store.definitions("이순신") if c["document_id"] == document_id)
+    other_id = "homonym" if document_id == "admiral" else "admiral"
     dense = Mock()
-    dense.search.return_value = [deepcopy(chosen)]
+    dense.search.return_value = store.document_chunks(other_id, top_k=3)
     dense.fetch_by_ids.return_value = [deepcopy(chosen)]
+    dense.search_documents.side_effect = lambda question, *, document_ids, top_k: [
+        context for selected_id in document_ids
+        for context in store.document_chunks(selected_id, top_k=top_k)
+        if context["section"] == "body"
+    ]
     monkeypatch.setattr("rag_indexing.pinecone_store.PineconeRetriever", lambda: dense)
     path = store.database_path if mode == "hybrid" else store.database_path.with_name("absent.sqlite3")
     monkeypatch.setattr(rag_client, "bm25_index_path", lambda: path)
@@ -213,4 +237,11 @@ def test_selected_source_lookup_through_service_factory(store, monkeypatch, mode
     dense.fetch_by_ids.assert_called_once_with([chosen["chunk_id"]])
     generator.invoke.assert_called_once()
     assert result["response"]["response_type"] == "answered"
-    assert result["retrieved_contexts"][0]["chunk_id"] == chosen["chunk_id"]
+    contexts = result["retrieved_contexts"]
+    assert {context["document_id"] for context in contexts} == {document_id}
+    assert [context["section"] for context in contexts] == ["definition", "body"]
+    dense.search.assert_not_called()
+    if mode == "hybrid":
+        dense.search_documents.assert_not_called()
+    else:
+        dense.search_documents.assert_called_once()
