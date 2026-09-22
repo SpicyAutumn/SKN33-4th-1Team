@@ -131,7 +131,9 @@ def answer(
     checker = getattr(service, "evidence_checker", None)
     if hasattr(checker, "begin_request"):
         checker.begin_request()
-    if retrieved_contexts is not None:
+    # A choice must fetch the selected document's body, not replay the old
+    # ambiguous definition list cached under the same original question.
+    if retrieved_contexts is not None and clarification_context is None:
         service = _service_with_contexts(service, retrieved_contexts)
     return service.answer_with_trace(
         question,
