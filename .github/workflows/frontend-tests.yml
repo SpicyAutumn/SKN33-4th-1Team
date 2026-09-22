@@ -29,6 +29,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm test
+      - run: npm run check:clarification
+      - run: node scripts/check-question-retry.cjs
       - run: node scripts/check-report.mjs
       - run: node scripts/check-answer-media.cjs
       - run: npm run build

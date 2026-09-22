@@ -104,13 +104,20 @@ export default function App({ request = api } = {}) {
     } catch (error) { setAuthError(error.message); }
   };
   const askQuestion = async (nextQuestion, nextLevel = level) => {
-    const askedQuestion = nextQuestion.trim();
+    const followup = typeof nextQuestion === "string" ? { question: nextQuestion } : nextQuestion;
+    const askedQuestion = String(followup?.question || "").trim();
     if (!askedQuestion) return;
     const version = ++requestVersion.current;
     setHistoryPage(false); setReportBoardPage(false); setAdminReportPage(false); setLoadingRecord(false);
     setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
     try {
-      const answer = await request("searches", { method: "POST", body: JSON.stringify({ question: askedQuestion, audience_level: nextLevel }) });
+      const answer = await request("searches", { method: "POST", body: JSON.stringify({
+        question: askedQuestion,
+        audience_level: nextLevel,
+        ...(followup?.interaction_id ? { interaction_id: followup.interaction_id } : {}),
+        ...(followup?.selected_source_chunk_ids?.length ? { selected_source_chunk_ids: followup.selected_source_chunk_ids } : {}),
+        ...(followup?.clarification_context ? { clarification_context: followup.clarification_context } : {}),
+      }) });
       if (version !== requestVersion.current) return;
       setResult(answer);
       setHistoryVersion((value) => value + 1);

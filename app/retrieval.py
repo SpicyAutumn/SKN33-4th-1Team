@@ -41,6 +41,38 @@ class _FixedContextsRetriever:
         return deepcopy(self.contexts[:top_k])
 
 
+class _PinnedContextsRetriever:
+    """선택한 청크를 서버에서 다시 읽어 일반 검색 결과보다 먼저 제공한다."""
+
+    def __init__(self, retriever: Any, chunk_ids: list[str]) -> None:
+        self.retriever = retriever
+        self.chunk_ids = list(dict.fromkeys(chunk_ids))
+
+    def search(self, question: str, *, top_k: int = 3) -> list[dict[str, Any]]:
+        fetch = getattr(self.retriever, "fetch_by_ids", None)
+        if not callable(fetch):
+            raise RuntimeError("retriever does not support selected source lookup")
+        pinned = fetch(self.chunk_ids)
+        found_ids = {str(item.get("chunk_id") or "") for item in pinned}
+        if any(chunk_id not in found_ids for chunk_id in self.chunk_ids):
+            raise RuntimeError("selected source chunk was not found")
+        searched = self.retriever.search(question, top_k=max(top_k, 3))
+        combined = [*pinned, *searched]
+        selected: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for item in combined:
+            chunk_id = str(item.get("chunk_id") or "")
+            if not chunk_id or chunk_id in seen:
+                continue
+            copy = deepcopy(item)
+            copy["retrieval_rank"] = len(selected) + 1
+            selected.append(copy)
+            seen.add(chunk_id)
+            if len(selected) == top_k:
+                break
+        return selected
+
+
 @lru_cache(maxsize=1)
 def get_service() -> RagService:
     """Streamlit 재실행 사이에도 Pinecone·BM25·생성 모델 연결 객체를 재사용한다."""
@@ -51,6 +83,16 @@ def _service_with_contexts(service: RagService, contexts: list[dict[str, Any]]) 
     """검색기만 고정 문맥으로 바꾸고 나머지 서비스 구성은 그대로 재사용한다."""
     return RagService(
         retriever=_FixedContextsRetriever(contexts),
+        generator=service.generator,
+        evidence_checker=service.evidence_checker,
+        scope_checker=service.scope_checker,
+        config=service.config,
+    )
+
+
+def _service_with_pinned_contexts(service: RagService, chunk_ids: list[str]) -> RagService:
+    return RagService(
+        retriever=_PinnedContextsRetriever(service.retriever, chunk_ids),
         generator=service.generator,
         evidence_checker=service.evidence_checker,
         scope_checker=service.scope_checker,
@@ -118,6 +160,7 @@ def answer(
     interaction_id: str | None = None,
     clarification_context: dict[str, Any] | None = None,
     retrieved_contexts: list[dict[str, Any]] | None = None,
+    selected_source_chunk_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """RagService를 호출해 응답과 실행 추적을 함께 돌려준다.
 
@@ -135,6 +178,8 @@ def answer(
     # ambiguous definition list cached under the same original question.
     if retrieved_contexts is not None and clarification_context is None:
         service = _service_with_contexts(service, retrieved_contexts)
+    elif selected_source_chunk_ids:
+        service = _service_with_pinned_contexts(service, selected_source_chunk_ids)
     return service.answer_with_trace(
         question,
         audience_level=audience_level,
