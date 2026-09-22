@@ -133,7 +133,14 @@ export default function App({ request = api } = {}) {
     finally { if (version === requestVersion.current) setLoading(false); }
   };
   const historyProps = { api: request, refreshKey: historyVersion, onOpen: openRecord, busy: loading, onMore: () => { if (historyMenu.current) historyMenu.current.open = false; setHistoryPage(true); } };
-  const backToSearch = () => { ++requestVersion.current; setLoading(false); setHistoryPage(false); setReportBoardPage(false); setAdminReportPage(false); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const backToSearch = () => {
+    ++requestVersion.current;
+    setQuestion("");
+    setLoading(false); setLoadingRecord(false);
+    setHistoryPage(false); setReportBoardPage(false); setAdminReportPage(false);
+    setResult(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const logout = async () => { await request("auth/logout", { method: "POST" }); setUser(null); backToSearch(); };
 
 
