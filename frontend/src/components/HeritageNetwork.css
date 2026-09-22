@@ -39,6 +39,7 @@
 }
 .answer-support:not(:has(.heritage-network)) { grid-template-columns:minmax(0,1fr); }
 .heritage-network-branches li { display:flex; flex-direction:column; gap:3px; }
+.heritage-network .heritage-network-reason { max-width:32ch; line-height:1.5; margin:0 0 8px; }
 
 .heritage-network .heritage-network-note { margin:5px 0 10px; font-size:12px; }
 .heritage-network .heritage-network-root { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 12px; margin:10px 0 12px; }
