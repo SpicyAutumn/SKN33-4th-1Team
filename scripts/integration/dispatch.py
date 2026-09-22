@@ -95,9 +95,7 @@ sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
             time.sleep(10)
             continue
         if result["Status"] != "Success":
-            diagnostics = result.get("StandardErrorContent", "").strip()
-            detail = f"\nSSM stderr:\n{diagnostics[-4000:]}" if diagnostics else ""
-            raise RuntimeError(f"Integration deployment failed ({result['Status']}); inspect SSM command {command_id}.{detail}")
+            raise RuntimeError(f"Integration deployment failed ({result['Status']}); inspect SSM command {command_id}.")
         record = next((json.loads(line.removeprefix("INTEGRATION_RESULT=")) for line in result["StandardOutputContent"].splitlines()
                        if line.startswith("INTEGRATION_RESULT=")), None)
         # Some Snap-packaged SSM agents report successful commands without
