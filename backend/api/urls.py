@@ -1,9 +1,11 @@
 from django.urls import path
 
 from . import views
+from .network_views import heritage_network
 
 
 urlpatterns = [
+    path("v1/heritage-network", heritage_network),
     path("health", views.health),
     path("v1/auth/csrf", views.csrf),
     path("v1/auth/signup", views.signup),

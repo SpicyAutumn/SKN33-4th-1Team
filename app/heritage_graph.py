@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -72,6 +73,11 @@ _LEVEL_SEPARATOR = "/"
 def _clean(value: Any) -> str:
     text = str(value or "").strip()
     return "" if text.upper() == "NONE" else text
+
+
+def _search_key(value: Any) -> str:
+    """질문과 표제어를 비교할 때 공백·문장부호 차이를 없앤다."""
+    return "".join(re.findall(r"[0-9A-Za-z가-힣]", _clean(value))).lower()
 
 
 def _has_final(word: str) -> bool | None:
@@ -169,6 +175,11 @@ class Catalog:
         for entry in self.entries:
             # 같은 제목이 여럿이면 먼저 나온 것을 쓴다. 목록 순서가 곧 수집 순서다.
             self.by_title.setdefault(entry.title, entry)
+        self.search_titles = [
+            (_search_key(entry.title), entry)
+            for entry in self.entries
+            if len(_search_key(entry.title)) >= 2
+        ]
 
     def find(self, key: str) -> Entry | None:
         key = _clean(key)
@@ -218,6 +229,29 @@ class Catalog:
             )
 
         return min(found.values(), key=score)["entry"]
+
+    def question_candidates(self, question: str, document_ids: Iterable[str] = ()) -> list[Entry]:
+        """서로 다른 대상과 동명 문서를 보존하고, 긴 이름 안의 짧은 표제어만 제외한다."""
+        asked = _search_key(question)
+        matches = []
+        for title, entry in self.search_titles:
+            start = asked.find(title)
+            while start >= 0:
+                matches.append((start, start + len(title), entry))
+                start = asked.find(title, start + 1)
+        candidates = {}
+        for start, end, entry in matches:
+            if not any(left <= start and end <= right and right - left > end - start
+                       for left, right, _ in matches):
+                candidates.setdefault(entry.document_id, entry)
+        if candidates:
+            return list(candidates.values())
+        return list({key: self.by_document[key] for key in document_ids if key in self.by_document}.values())
+
+    def resolve_question(self, question: str, document_ids: Iterable[str] = ()) -> Entry | None:
+        """유일한 대상만 자동 선택한다. 복수 대상은 question_candidates로 선택받는다."""
+        candidates = self.question_candidates(question, document_ids)
+        return candidates[0] if len(candidates) == 1 else None
 
     def values_sharing_top_level(self, column: str, value: str) -> list[str]:
         """같은 대분류에 속한 원본 문자열 목록. Pinecone `$in` 필터에 쓴다."""
@@ -421,6 +455,27 @@ def _node(entry: Entry, reason: str) -> dict[str, Any]:
     }
 
 
+def _representative_value(entries: Iterable[Entry], column: str) -> str:
+    """여러 관련 유물에서 가장 많이 나온 시대·유형의 원본 값을 고른다."""
+    counts: dict[str, int] = {}
+    first_value: dict[str, str] = {}
+    order: list[str] = []
+    for entry in entries:
+        value = _clean(getattr(entry, column))
+        key = top_level(value)
+        if not key or key in UNKNOWN_VALUES:
+            continue
+        if key not in counts:
+            counts[key] = 0
+            first_value[key] = value
+            order.append(key)
+        counts[key] += 1
+    if not counts:
+        return ""
+    chosen = max(order, key=lambda key: counts[key])
+    return first_value[chosen]
+
+
 def build_map(
     root_key: str,
     *,
@@ -458,10 +513,21 @@ def build_map(
 
     anchor = neighbors.anchor(root.document_id) if neighbors is not None else None
     summary = neighbors.summary(root.document_id) if neighbors is not None else ""
+    root_is_heritage = book.is_heritage(root)
+    effective_period = root.period
+    effective_item_type = root.item_type
 
     # 1. 구성 요소 — 만든 목록만으로 확실하게 판별된다.
     parts = [e for e in book.titles_starting_with(root.title) if book.is_heritage(e)]
     if parts:
+        # 개념 표제어는 이름만 같은 다른 분야의 작품까지 품을 수 있다. `청자`에
+        # `청자부`(현대문학)가 붙는 식의 동음 연결을 막고 같은 분야의 유물을 쓴다.
+        if not book.is_heritage(root) and root.field:
+            same_field = [entry for entry in parts if entry.field == root.field]
+            parts = same_field
+        if not root_is_heritage:
+            effective_period = _representative_value(parts, "period") or root.period
+            effective_item_type = _representative_value(parts, "item_type") or root.item_type
         ordered = sorted(parts, key=lambda e: e.title)
         if anchor:
             # 가나다순으로 두면 `경복궁 강녕전`이 앞서고 정작 정전인 `근정전`이
@@ -474,10 +540,9 @@ def build_map(
             )
             ordered = [by_id[d] for d, _ in ranked if d in by_id] or ordered
         add(
-            "딸린 유산",
-            f"이름이 `{root.title}`으로 시작하는 유산입니다. "
-            "딸린 건물이거나 같은 계열의 기록입니다.",
-            [_node(e, "이름이 이어집니다") for e in ordered],
+            "이름이 연결되는 유산",
+            f"이름이 `{root.title}`으로 시작하는 항목입니다. 실제 소속 관계를 뜻하지는 않습니다.",
+            [_node(e, f"이름이 {root.title}(으)로 시작") for e in ordered],
         )
         # 보여 주지 못한 구성 요소도 다른 가지에 다시 넣지 않는다. 그러지 않으면
         # `같은 시대`가 온통 `경복궁 ○○`으로 채워져 다른 유산으로 갈 길이 막힌다.
@@ -486,27 +551,32 @@ def build_map(
 
     if anchor:
         # 2. 같은 시대 — 대분류가 같은 원본 문자열을 모두 건다.
-        era = top_level(root.period)
+        era = top_level(effective_period)
         era_values = (
-            book.values_sharing_top_level("period", root.period)
+            book.values_sharing_top_level("period", effective_period)
             if era and era not in UNKNOWN_VALUES
             else []
         )
         if era_values:
+            era_filters: list[dict[str, Any]] = [
+                {"era": {"$in": era_values}},
+                {"primary_type": {"$in": book.heritage_type_values()}},
+            ]
+            if not root_is_heritage and root.field:
+                era_filters.append({"field": {"$eq": root.field}})
             found = neighbors.search(
                 anchor,
                 limit=limit,
-                metadata_filter={
-                    "$and": [
-                        {"era": {"$in": era_values}},
-                        {"primary_type": {"$in": book.heritage_type_values()}},
-                    ]
-                },
+                metadata_filter={"$and": era_filters},
                 exclude_documents=used,
             )
             add(
                 f"시대 : {era}",
-                f"백과사전이 `{era}`{ro_suffix(era)} 매긴 유산 가운데 원문이 가까운 순입니다.",
+                (
+                    f"관련 유물에서 가장 많이 확인된 `{era}` 시대의 가까운 유산입니다."
+                    if not root_is_heritage
+                    else f"백과사전이 `{era}`{ro_suffix(era)} 매긴 유산 가운데 원문이 가까운 순입니다."
+                ),
                 [
                     _node(book.by_document[d], f"{era}")
                     for d, _ in found
@@ -516,27 +586,50 @@ def build_map(
 
         # 3. 같은 유형 — 궁궐이면 궁궐, 탑이면 탑.
         type_values = (
-            book.values_sharing_top_level("item_type", root.item_type)
-            if top_level(root.item_type) in HERITAGE_TYPES
+            book.values_sharing_top_level("item_type", effective_item_type)
+            if top_level(effective_item_type) in HERITAGE_TYPES
             else []
         )
         if type_values:
-            kind = top_level(root.item_type)
+            kind = top_level(effective_item_type)
+            type_filter: dict[str, Any] = {"primary_type": {"$in": type_values}}
+            if not root_is_heritage and root.field:
+                type_filter = {"$and": [type_filter, {"field": {"$eq": root.field}}]}
             found = neighbors.search(
                 anchor,
                 limit=limit,
-                metadata_filter={"primary_type": {"$in": type_values}},
+                metadata_filter=type_filter,
                 exclude_documents=used,
             )
             add(
                 f"종류 : {kind}",
-                f"백과사전이 `{kind}`{ro_suffix(kind)} 분류한 유산입니다.",
+                (
+                    f"관련 유물에서 가장 많이 확인된 `{kind}` 유형의 가까운 유산입니다."
+                    if not root_is_heritage
+                    else f"백과사전이 `{kind}`{ro_suffix(kind)} 분류한 유산입니다."
+                ),
                 [
                     _node(book.by_document[d], f"{kind}")
                     for d, _ in found
                     if d in book.by_document
                 ],
             )
+
+    # 외부 검색 없이도 목록에 명시된 공통 분류를 보여 준다. 유사도 순위가 아니다.
+    if neighbors is None:
+        for column, value, label in (("period", effective_period, "시대"),
+                                     ("item_type", effective_item_type, "종류")):
+            category = top_level(value)
+            if not category or category in UNKNOWN_VALUES or category == "개념":
+                continue
+            candidates = [entry for entry in book.entries
+                          if book.is_heritage(entry) and entry.document_id not in used
+                          and top_level(getattr(entry, column)) == category
+                          and (not root.field or entry.field == root.field)]
+            add(f"{label} : {category}",
+                "목록의 분류가 같고 분야가 일치하는 항목입니다. 이름순으로 표시하며 역사적 관계를 뜻하지는 않습니다.",
+                [_node(entry, f"같은 {label}: {category}")
+                 for entry in sorted(candidates, key=lambda entry: entry.title)])
 
     # 4. 같은 지역 — 좌표가 없어 이름과 주소로 판별한다.
     place = root.region or region_from_summary(summary)
@@ -551,7 +644,7 @@ def build_map(
         # 가까운 순으로 세운다. 가나다순으로 두면 `서울 고려대학교 본관`처럼
         # 결이 다른 항목이 앞에 온다.
         def affinity(entry: Entry) -> tuple[int, int, str]:
-            same_type = top_level(entry.item_type) == top_level(root.item_type)
+            same_type = top_level(entry.item_type) == top_level(effective_item_type)
             same_field = top_level(entry.field) == top_level(root.field)
             return (0 if same_type else 1, 0 if same_field else 1, entry.title)
 
@@ -568,22 +661,29 @@ def build_map(
 
         add(
             f"지역 : {place}",
-            f"이름 앞머리가 `{place}`인 유산입니다. 함께 둘러볼 수 있습니다.",
-            [_node(e, f"{place} 소재") for e in nearby],
+            f"이름에서 `{place}` 지역명이 확인되는 항목입니다. 현재 위치와 관람 가능 여부는 출처에서 확인해 주세요.",
+            [_node(e, f"지역명: {place}") for e in nearby],
         )
 
     # 5. 몰랐던 연결 — 유형을 일부러 뒤집는다.
     # 앞의 축들이 같은 유형에서 가까운 것을 이미 가져갔으므로, 그냥 두면
     # 여기도 궁궐 옆의 궁궐이 나온다. 유적을 빼야 인물·사건·개념이 올라온다.
     if anchor:
-        other_kinds = book.heritage_type_values(exclude_top_level=top_level(root.item_type))
+        other_kinds = book.heritage_type_values(exclude_top_level=top_level(effective_item_type))
+        other_filter: dict[str, Any] | None = (
+            {"primary_type": {"$in": other_kinds}} if other_kinds else None
+        )
+        if not book.is_heritage(root) and root.field and other_filter:
+            other_filter = {
+                "$and": [other_filter, {"field": {"$eq": root.field}}]
+            }
         found = neighbors.search(
             anchor,
             limit=limit,
-            metadata_filter={"primary_type": {"$in": other_kinds}} if other_kinds else None,
+            metadata_filter=other_filter,
             exclude_documents=used,
         )
-        kind = top_level(root.item_type)
+        kind = top_level(effective_item_type)
         add(
             "다른 갈래",
             (
@@ -608,11 +708,24 @@ def build_map(
                 neighbors.summary(node["document_id"]), NODE_SUMMARY_LIMIT
             )
 
+    root_fields = root.summary_fields()
+    if not root_is_heritage:
+        root_fields = [
+            ("대표 시대", top_level(effective_period)),
+            ("분야", root.field),
+            ("대표 유형", top_level(effective_item_type)),
+        ]
+        root_fields = [
+            (label, value)
+            for label, value in root_fields
+            if value and value not in UNKNOWN_VALUES and value != "개념"
+        ]
+
     return {
         "root": {
             "document_id": root.document_id,
             "title": root.title,
-            "fields": root.summary_fields(),
+            "fields": root_fields,
             "summary": _shorten(summary, SUMMARY_LIMIT),
             "source_url": root.source_url,
         },
