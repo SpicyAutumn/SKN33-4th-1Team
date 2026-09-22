@@ -18,15 +18,16 @@ function Explorer({ question, citations = [], request = fetchHeritageNetwork }) 
   const explorer = useMemo(() => createNetworkExplorer(request, { question, document_ids: documentIds }), [request, question, documentIds]);
   const state = useSyncExternalStore(explorer.subscribe, explorer.getSnapshot, explorer.getSnapshot);
   const [expanded, setExpanded] = useState(false);
+  const [wide, setWide] = useState(false);
   useEffect(() => () => explorer.cancel(), [explorer]);
   const root = state.data?.root;
-  return <section className="heritage-network" aria-label="연관 문화유산 탐색">
-    <div className="heritage-network-heading"><div><h2>연관 문화유산 탐색</h2><p>이름·분류·지역 정보가 연결되는 다른 유산을 찾아보세요.</p></div>
+  return <section className={`heritage-network${wide ? " is-wide" : ""}`} aria-label="함께 알아보기">
+    <div className="heritage-network-heading"><div><h2>함께 알아보기</h2><p>이름·분류·지역 정보가 연결되는 다른 유산을 찾아보세요.</p></div>
       <button type="button" disabled={state.busy} aria-expanded={expanded} onClick={() => {
         setExpanded(!expanded);
         if (!expanded && !state.data) explorer.open();
       }}>{expanded ? "접기" : "탐색 열기"}</button></div>
-    {expanded && <div>
+    {expanded && <div><button type="button" aria-pressed={wide} onClick={() => setWide(!wide)}>{wide ? "작게 보기" : "크게 보기"}</button>
       <p className="heritage-network-note">문화유산 목록을 기준으로 안내합니다. 실제 역사적 관계나 방문 가능 여부는 원문에서 확인해 주세요.</p>
       <div className="heritage-network-toolbar"><button type="button" disabled={state.busy || !state.history.length} onClick={explorer.back}>← 이전 탐색</button>
         {state.busy && <span role="status">연결 정보를 불러오고 있어요.</span>}</div>
