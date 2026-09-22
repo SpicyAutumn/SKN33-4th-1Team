@@ -19,13 +19,24 @@ _INTRODUCTION = re.compile(
     r"(?:알려줘|알려주세요|설명해줘|설명해주세요)"
     r"|(?:은|는)?\s*(?:누구야|누구인가요|어떤\s*사람이야))?\s*[?.!]?\s*$"
 )
+_NAME_INTRODUCTION = re.compile(
+    r"^\s*(?P<name>[가-힣]{2,5}?)"
+    r"\s*(?:(?:(?:에\s*대해(?:서)?)\s*)?"
+    r"(?:알려줘|알려주세요|설명해줘|설명해주세요)"
+    r"|(?:은|는)?\s*(?:누구야|누구인가요|어떤\s*사람이야))?\s*[?.!]?\s*$"
+)
 _MILITARY = re.compile(r"(?:장군|장수|무신|수군통제사|절도사)(?=[\s,.。]|$)")
 _MONARCH = re.compile(r"(?:왕|국왕|황제|임금)[.。]?\s*$")
 
 
 def person_introduction(question: str) -> tuple[str, str] | None:
     match = _INTRODUCTION.fullmatch(question)
-    return (match.group("name"), match.group("honorific")) if match else None
+    if match:
+        return match.group("name"), match.group("honorific")
+    match = _NAME_INTRODUCTION.fullmatch(question)
+    # This only proposes an exact catalogue lookup. _search still requires
+    # matching person records, so an arbitrary short Korean word is not a name.
+    return (match.group("name"), "") if match else None
 
 
 def person_option_label(context: dict[str, Any]) -> str:
@@ -74,7 +85,7 @@ class PersonDocumentStore:
 
 
 class PersonTitleRetriever:
-    """Resolve honorific introductions using existing definitions, then fetch body.
+    """Resolve name/honorific introductions using definitions, then fetch body.
 
     No fuzzy name or popularity-based disambiguation. Multiple compatible people
     are marked for the application's deterministic clarification flow. Without a
