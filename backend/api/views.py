@@ -587,7 +587,7 @@ def admin_search_detail(request, record_id):
     record = SearchRecord.objects.select_related("owner").prefetch_related("citations").filter(id=record_id).first()
     if record is None:
         return _error("RESOURCE_NOT_FOUND", "검색 기록을 찾을 수 없습니다.", 404)
-    data = _record_data(record, detail=True)
+    data = _record_data(record, detail=True, include_media=True)
     data.update({"user_name": record.owner.name, "user_email": record.owner.email})
     return JsonResponse(data)
 
