@@ -351,7 +351,7 @@ class HeritageGraphTest(unittest.TestCase):
         payload = heritage_graph.build_map("경복궁", neighbors=None)
         self.assertEqual(payload["root"]["title"], "경복궁")
         titles = [b["title"] for b in payload["branches"]]
-        self.assertIn("딸린 유산", titles)
+        self.assertIn("이름이 연결되는 유산", titles)
 
     def test_unknown_root_returns_none(self):
         self.assertIsNone(heritage_graph.build_map("없는유산", neighbors=None))
@@ -376,11 +376,12 @@ class HeritageGraphTest(unittest.TestCase):
         values = self.book.heritage_type_values(exclude_top_level="유적")
         self.assertNotIn("유적", {heritage_graph.top_level(v) for v in values})
 
-    def test_unknown_period_makes_no_branch(self):
-        """`미상`은 6,586건이 함께 달고 있어 같은 값이라는 사실이 아무것도 설명하지 못한다."""
+    def test_concept_period_is_labelled_as_representative(self):
+        """개념 자체의 시대가 미상이면 관련 항목의 시대를 대표값으로 구분한다."""
         self.assertEqual(heritage_graph.top_level(self.book.find("궁궐").period), "미상")
         payload = heritage_graph.build_map("궁궐", neighbors=None)
-        self.assertFalse([b for b in payload["branches"] if b["title"].startswith("시대 :")])
+        self.assertFalse([b for b in payload["branches"] if b["title"] == "시대 : 미상"])
+        self.assertTrue(any(label == "대표 시대" for label, _ in payload["root"]["fields"]))
 
     def test_root_prefers_a_heritage_item_over_a_concept(self):
         """`직지`를 물으면 검색 1위가 `직`(유교 개념)이고 정답은 2위였다."""

@@ -79,6 +79,8 @@ def _select_clarification(response: dict, clarification: dict, option: dict) -> 
     }
     st.session_state["interaction_id"] = response.get("interaction_id")
     st.session_state["pending_question"] = original
+    if str(option.get("id", "")).startswith("person-"):
+        st.session_state["pending_autorun"] = True
 
 
 def _render_correction(response: dict) -> None:

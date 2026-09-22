@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import AnswerContent from "./components/AnswerContent.jsx";
 import ErrorReportPanel from "./components/ErrorReportPanel";
 import HeritageLoading from "./components/HeritageLoading";
 import AnswerMediaLayout from "./components/AnswerMediaLayout";
 import HomeLayout from "./components/HomeLayout";
 import SearchHistory from "./components/SearchHistory";
 import EvidenceSources from "./components/EvidenceSources";
+import HeritageNetwork from "./components/HeritageNetwork";
 import ErrorReportBoard from "./components/ErrorReportBoard";
 import AdminErrorReportBoard from "./components/AdminErrorReportBoard";
 import { clarificationFollowup } from "./clarificationFollowup";
@@ -40,7 +42,7 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-export function AnswerView({ question, level, result, loading, loadingRecord, onBack, onChangeLevel, onSubmitReport, reportMode = "legacy", onAsk }) {
+export function AnswerView({ question, level, result, loading, loadingRecord, onBack, onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk }) {
   const [reportActive, setReportActive] = useState(false);
   const answerText = useRef(null);
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
@@ -49,17 +51,18 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     <button type="button" className="back-to-search" onClick={onBack}>← 검색으로 돌아가기</button>
     <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={loading || value === level}>{label}</button>)}</div></section>
     {result?.savedRecord && <p className="saved-answer-note">저장된 답변입니다. 설명 수준을 변경하면 새 답변을 생성합니다.</p>}
-    {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : <HeritageLoading />)}
+    {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : (loadingPreview || <HeritageLoading />))}
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div></header>
-      <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}>{(!result.savedRecord || result.summary) && <section className="core-summary"><b>★ 핵심 요약</b><p>{result.summary || result.message}</p></section>}<p ref={answerText} className="full-answer">{result.message}</p>
+      <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}><AnswerContent result={result} answerRef={answerText} />
         {result.response_type === "needs_clarification" && result.clarification && <section className="clarification-card"><b>질문을 조금 더 구체적으로 알려주세요</b><p>{result.clarification.question || result.message}</p><div>{(result.clarification.options || []).map((option) => <button type="button" key={option.id || option.label} onClick={() => onAsk(clarificationFollowup(question, result, option))}>{option.label}</button>)}</div></section>}
         </AnswerMediaLayout>
-        <EvidenceSources citations={citations} />
-        {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
+        <div className={`answer-support${citations.length ? "" : " no-evidence"}`}><EvidenceSources citations={citations} />{result && !result.error && !loading && result.response_type !== "needs_clarification" && <HeritageNetwork answerKey={result.request_id || result.search_record_id || question + level} question={question} citations={citations} />}</div>
+        {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} capturePreview={capturePreview} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
       </div>
     </article>}
+
   </div></section>;
 }
 
