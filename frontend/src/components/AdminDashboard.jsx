@@ -6,7 +6,7 @@ const statusLabels = { received: "접수됨", reviewing: "확인 중", completed
 const levelLabels = { easy: "초등학생", general: "중·고등학생", advanced: "성인 일반" };
 const dateLabel = (value) => new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" }).format(new Date(value));
 
-export default function AdminDashboard({ api, onBack, onOpenUsers, onOpenReports, onOpenSearches, onOpenSearchDetail }) {
+export default function AdminDashboard({ api, onOpenUsers, onOpenReports, onOpenSearches, onOpenSearchDetail }) {
   const [state, setState] = useState({ data: null, loading: true, error: "" });
   const [retry, setRetry] = useState(0);
 
@@ -24,7 +24,6 @@ export default function AdminDashboard({ api, onBack, onOpenUsers, onOpenReports
 
   const { summary, recent_reports: reports, recent_users: users, recent_searches: searches } = state.data;
   return <section className="admin-dashboard-page"><div className="admin-dashboard-shell">
-    <button type="button" className="dashboard-back" onClick={onBack}>← 서비스 화면으로</button>
     <header className="dashboard-heading"><div><p>관리자 전용</p><h1>운영 대시보드</h1><span>오류 제보와 서비스 이용 기록을 최근 순으로 확인합니다.</span></div><button type="button" className="primary" onClick={onOpenReports}>오류 제보 관리</button></header>
     <section className="dashboard-summary" aria-label="운영 현황 요약">
       <article><span>전체 오류 제보</span><strong>{summary.total_reports}</strong><small>누적 제보</small></article>
