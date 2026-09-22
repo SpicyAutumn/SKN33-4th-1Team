@@ -373,8 +373,19 @@ _CTX_REF_LIST = rf"{_CTX_REF}(?:\s*(?:,|·|/|및|와|과)\s*{_CTX_REF})*"
 
 
 def _sanitize_internal_context_refs(text: str) -> str:
-    """Remove model-only CTX references from user-facing Korean prose."""
+    """Remove CTX references without consuming paragraph or list boundaries."""
+    parts = re.split(r"(\r\n|\r|\n)", str(text or ""))
+    return "".join(
+        part if index % 2 else _sanitize_context_ref_line(part)
+        for index, part in enumerate(parts)
+    ).strip()
+
+
+def _sanitize_context_ref_line(text: str) -> str:
+    """Apply reference cleanup to one line, preserving its indentation."""
     value = str(text or "")
+    indent = re.match(r"[ \t]*", value).group()
+    value = value[len(indent):]
     value = re.sub(
         rf"검색된\s*문맥\s*[([]\s*{_CTX_REF_LIST}\s*[)\]]\s*(?:은|는|에서)?",
         "검색된 자료에 따르면 ",
@@ -398,7 +409,8 @@ def _sanitize_internal_context_refs(text: str) -> str:
     value = re.sub(r"\(\s*(?:,\s*)*\)", "", value)
     value = re.sub(r"[ \t]{2,}", " ", value)
     value = re.sub(r"\s+([,.;!?。！？])", r"\1", value)
-    return value.strip()
+    cleaned = value.strip(" \t")
+    return indent + cleaned if cleaned else ""
 
 
 def _sanitize_user_facing_text(model_output: dict[str, Any]) -> None:
