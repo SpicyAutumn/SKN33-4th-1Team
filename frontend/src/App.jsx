@@ -21,12 +21,14 @@ import { levelChangeRequest } from "./clarificationFollowup";
 const levels = [["easy", "초등학생"], ["general", "중·고등학생"], ["advanced", "성인 일반"]];
 const adminRoute = () => {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (/^\/admin\/searches\/[^/]+$/.test(path)) return "searches";
   if (path === "/admin") return "dashboard";
   if (path === "/admin/users") return "users";
   if (path === "/admin/searches") return "searches";
   if (path === "/admin/reports") return "reports";
   return null;
 };
+const adminSearchDetailRoute = () => (window.location.pathname.replace(/\/+$/, "") || "/").match(/^\/admin\/searches\/([^/]+)$/)?.[1] || null;
 const myPageRoute = () => {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
   const detail = path.match(/^\/mypage\/(searches|reports)\/([^/]+)$/);
@@ -70,14 +72,14 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-export function AnswerView({ question, level, result, loading, loadingRecord, onBack, backLabel = "검색으로 돌아가기", onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk }) {
+export function AnswerView({ question, level, result, loading, loadingRecord, onBack, backLabel = "검색으로 돌아가기", onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk, readOnly = false }) {
   const [reportActive, setReportActive] = useState(false);
   const answerText = useRef(null);
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
   return <section className={reportActive ? "answer-page report-active" : "answer-page"}><div className="answer-shell">
     <button type="button" className="back-to-search" onClick={onBack}>← {backLabel}</button>
-    <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={loading || value === level}>{label}</button>)}</div></section>
+    <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={readOnly || loading || value === level}>{label}</button>)}</div></section>
     {result?.savedRecord && <p className="saved-answer-note">저장된 답변입니다. 설명 수준을 변경하면 새 답변을 생성합니다.</p>}
     {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : (loadingPreview || <HeritageLoading />))}
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
@@ -112,6 +114,8 @@ export default function App({ request = api } = {}) {
   const [myPageDetail, setMyPageDetail] = useState(() => myPageRoute()?.detail || null);
   const [returnToMyPage, setReturnToMyPage] = useState(null);
   const [adminPage, setAdminPage] = useState(adminRoute);
+  const [adminSearchDetail, setAdminSearchDetail] = useState(adminSearchDetailRoute);
+  const [adminSearchRecord, setAdminSearchRecord] = useState({ item: null, loading: false, error: "" });
   const [adminAccess, setAdminAccess] = useState("checking");
   const [adminAccessError, setAdminAccessError] = useState("");
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -136,7 +140,7 @@ export default function App({ request = api } = {}) {
   useEffect(() => {
     const onPopState = () => {
       const route = myPageRoute();
-      setAdminPage(adminRoute()); setMyPage(route?.section || null); setMyPageDetail(route?.detail || null);
+      setAdminPage(adminRoute()); setAdminSearchDetail(adminSearchDetailRoute()); setMyPage(route?.section || null); setMyPageDetail(route?.detail || null);
       if (!route?.detail) { ++requestVersion.current; setLoading(false); setLoadingRecord(false); setResult(null); }
     };
     window.addEventListener("popstate", onPopState);
@@ -166,6 +170,15 @@ export default function App({ request = api } = {}) {
     });
     return () => { active = false; };
   }, [myPageDetail, request, user]);
+  useEffect(() => {
+    if (adminPage !== "searches" || !adminSearchDetail || adminAccess !== "granted") { setAdminSearchRecord({ item: null, loading: false, error: "" }); return undefined; }
+    let active = true;
+    setAdminSearchRecord({ item: null, loading: true, error: "" });
+    request("admin/searches/" + encodeURIComponent(adminSearchDetail)).then((item) => {
+      if (active) setAdminSearchRecord({ item, loading: false, error: "" });
+    }).catch((error) => { if (active) setAdminSearchRecord({ item: null, loading: false, error: error.message }); });
+    return () => { active = false; };
+  }, [adminAccess, adminPage, adminSearchDetail, request]);
 
   const submitAuth = async (event) => {
     event.preventDefault(); setAuthError("");
@@ -179,7 +192,7 @@ export default function App({ request = api } = {}) {
     const askedQuestion = String(followup?.question || "").trim();
     if (!askedQuestion) return;
     const version = ++requestVersion.current;
-    setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setAdminPage(null); setLoadingRecord(false);
+    setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setAdminPage(null); setAdminSearchDetail(null); setLoadingRecord(false);
     setActiveQuestionRequest(followup);
     setQuestion(askedQuestion); setLevel(nextLevel); setLoading(true); setResult(null); window.scrollTo({ top: 0, behavior: "smooth" });
     try {
@@ -225,19 +238,21 @@ export default function App({ request = api } = {}) {
     setQuestion("");
     setActiveQuestionRequest(null);
     setLoading(false); setLoadingRecord(false);
-    setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setAdminPage(null);
+    setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setAdminPage(null); setAdminSearchDetail(null);
     setResult(null);
     if (window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/mypage")) window.history.pushState({}, "", "/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const openAdminPage = (page) => { ++requestVersion.current; setLoading(false); setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setResult(null); setAdminPage(page); window.history.pushState({}, "", page === "reports" ? "/admin/reports" : page === "users" ? "/admin/users" : page === "searches" ? "/admin/searches" : "/admin"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const openAdminPage = (page) => { ++requestVersion.current; setLoading(false); setHistoryPage(false); setReportBoardPage(false); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setResult(null); setAdminPage(page); setAdminSearchDetail(null); window.history.pushState({}, "", page === "reports" ? "/admin/reports" : page === "users" ? "/admin/users" : page === "searches" ? "/admin/searches" : "/admin"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const openAdminSearchDetail = (recordId) => { setAdminPage("searches"); setAdminSearchDetail(recordId); window.history.pushState({}, "", `/admin/searches/${encodeURIComponent(recordId)}`); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const closeAdminSearchDetail = () => { setAdminPage("searches"); setAdminSearchDetail(null); window.history.pushState({}, "", "/admin/searches"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const logout = async () => { await request("auth/logout", { method: "POST" }); setUser(null); backToSearch(); };
   const logoutAdmin = async () => { await request("admin/logout", { method: "POST" }); setAdminAccess("denied"); setAdminAccessError(""); };
   const openMyPage = (section = "profile") => { setActiveQuestionRequest(null); ++requestVersion.current; setLoading(false); setLoadingRecord(false); setHistoryPage(false); setReportBoardPage(false); setAdminPage(null); setResult(null); setMyPageDetail(null); setReturnToMyPage(null); setMyPage(section); window.history.pushState({}, "", myPagePath(section)); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const openReportDetail = (reportId) => { setMyPage("reports"); setMyPageDetail({ kind: "report", id: reportId }); window.history.pushState({}, "", myPagePath("reports", reportId)); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const closeReportDetail = () => { setMyPage("reports"); setMyPageDetail(null); window.history.pushState({}, "", myPagePath("reports")); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const backToMyPage = () => { ++requestVersion.current; const section = returnToMyPage || "searches"; setQuestion(""); setLoading(false); setLoadingRecord(false); setHistoryPage(false); setReportBoardPage(false); setAdminPage(null); setResult(null); setMyPage(section); setMyPageDetail(null); setReturnToMyPage(null); window.history.pushState({}, "", myPagePath(section)); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const afterAccountDeleted = () => { setActiveQuestionRequest(null); setUser(null); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setHistoryPage(false); setReportBoardPage(false); setResult(null); setQuestion(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const afterAccountDeleted = () => { setActiveQuestionRequest(null); setUser(null); setMyPage(false); setMyPageDetail(null); setReturnToMyPage(false); setHistoryPage(false); setReportBoardPage(false); setAdminSearchDetail(null); setResult(null); setQuestion(""); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
 
   return <main>

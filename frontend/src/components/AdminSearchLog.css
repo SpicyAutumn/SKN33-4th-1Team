@@ -1,1 +1,41 @@
-.admin-search-page { min-height: calc(100vh - 84px); padding: 42px 24px 76px; background: #f8f7f1; } .admin-search-shell { width: min(960px, 100%); margin: auto; } .search-log-back { margin: 0 0 19px; padding: 6px 2px; background: transparent; color: #52736a; font-weight: 800; } .search-log-heading { padding-bottom: 25px; border-bottom: 1px solid #e0e5de; } .search-log-heading p { margin: 0 0 7px; color: #936129; font-size: 14px; font-weight: 800; } .search-log-heading h1 { margin: 0 0 9px; color: #183d34; font-size: 32px; letter-spacing: -1.8px; } .search-log-heading span { color: #718078; } .search-log-card { margin-top: 22px; overflow: hidden; border: 1px solid #dce5dd; border-radius: 17px; background: #fff; } .search-log-summary { display: flex; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid #e5ebe5; color: #718078; font-size: 13px; } .search-log-card ul { margin: 0; padding: 0; list-style: none; } .search-log-card li { display: flex; align-items: center; gap: 12px; min-height: 68px; padding: 13px 20px; border-bottom: 1px solid #eff2ee; } .search-log-card li > div { min-width: 0; flex: 1; display: grid; gap: 4px; } .search-log-card strong { overflow: hidden; color: #2a5044; text-overflow: ellipsis; white-space: nowrap; } .search-log-card small { overflow: hidden; color: #819088; text-overflow: ellipsis; white-space: nowrap; } .search-log-card time { flex: 0 0 130px; color: #839188; font-size: 13px; text-align: right; } .search-log-pages { display: flex; align-items: center; justify-content: center; gap: 13px; padding: 18px; } .search-log-pages button { padding: 8px 13px; border: 1px solid #d8e4dc; border-radius: 999px; background: #fff; color: #416b5c; font-weight: 800; } .search-log-pages button:disabled { cursor: default; border-color: #e8ece8; color: #a1aaa4; } .search-log-pages span { color: #718078; font-size: 13px; } .search-log-state { padding: 38px; color: #718078; text-align: center; } .search-log-error { color: #a34237; } @media (max-width: 600px) { .admin-search-page { padding: 27px 18px 54px; } .search-log-heading h1 { font-size: 28px; } .search-log-card li { padding-left: 15px; padding-right: 15px; } .search-log-card time { flex-basis: 90px; font-size: 11px; } }
+.admin-search-page { min-height: calc(100vh - 84px); padding: 42px 24px 76px; background: #f8f7f1; }
+.admin-search-shell { width: min(960px, 100%); margin: auto; }
+.search-log-back { margin: 0 0 19px; padding: 6px 2px; background: transparent; color: #52736a; font-weight: 800; }
+.search-log-heading { padding-bottom: 25px; border-bottom: 1px solid #e0e5de; }
+.search-log-heading p, .search-detail header p { margin: 0 0 7px; color: #936129; font-size: 14px; font-weight: 800; }
+.search-log-heading h1 { margin: 0 0 9px; color: #183d34; font-size: 32px; letter-spacing: -1.8px; }
+.search-log-heading span { color: #718078; }
+.search-log-card, .search-detail { margin-top: 22px; overflow: hidden; border: 1px solid #dce5dd; border-radius: 17px; background: #fff; }
+.search-log-summary { display: flex; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid #e5ebe5; color: #718078; font-size: 13px; }
+.search-log-card ul { margin: 0; padding: 0; list-style: none; }
+.search-log-card li { border-bottom: 1px solid #eff2ee; }
+.search-log-card li > button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 68px; padding: 13px 20px; background: #fff; color: inherit; text-align: left; }
+.search-log-card li > button:hover, .search-log-card li > button.selected { background: #f1f8f3; }
+.search-log-card li > button > div { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.search-log-card strong, .search-log-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-log-card strong { color: #2a5044; }
+.search-log-card small { color: #819088; }
+.search-log-card time { flex: 0 0 130px; color: #839188; font-size: 13px; text-align: right; }
+.search-log-card b { color: #719083; font-size: 20px; }
+.search-log-pages { display: flex; align-items: center; justify-content: center; gap: 13px; padding: 18px; }
+.search-log-pages button, .search-detail header button, .search-log-error button { padding: 8px 13px; border: 1px solid #d8e4dc; border-radius: 999px; background: #fff; color: #416b5c; font-weight: 800; }
+.search-log-pages button:disabled { cursor: default; border-color: #e8ece8; color: #a1aaa4; }
+.search-log-pages span { color: #718078; font-size: 13px; }
+.search-log-state { padding: 38px; color: #718078; text-align: center; }
+.search-log-error { color: #a34237; }
+.search-detail { padding: 25px; }
+.search-detail header { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 19px; border-bottom: 1px solid #e5ebe5; }
+.search-detail h2 { margin: 0; color: #183d34; font-size: 23px; line-height: 1.45; }
+.search-detail dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+.search-detail dl > div { padding: 12px; border-radius: 10px; background: #f6f9f5; }
+.search-detail dt { margin-bottom: 5px; color: #718078; font-size: 12px; font-weight: 800; }
+.search-detail dd { margin: 0; color: #315d50; font-size: 13px; overflow-wrap: anywhere; }
+.search-detail section { margin-top: 20px; }
+.search-detail h3 { margin: 0 0 9px; color: #315d50; font-size: 15px; }
+.search-detail-message { margin: 0; color: #294b41; line-height: 1.75; white-space: pre-wrap; }
+.search-detail ol { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.search-detail ol li { display: flex; flex-wrap: wrap; gap: 3px 10px; color: #526b61; font-size: 13px; }
+.search-detail ol strong { color: #2a5044; }
+.search-detail ol span { color: #718078; }
+.search-detail a { color: #237159; font-weight: 800; }
+@media (max-width: 600px) { .admin-search-page { padding: 27px 18px 54px; } .search-log-heading h1 { font-size: 28px; } .search-log-card li > button { align-items: flex-start; padding: 15px; } .search-log-card time { flex-basis: auto; font-size: 11px; } .search-detail { padding: 20px; } .search-detail header { align-items: flex-start; flex-direction: column; } .search-detail dl { grid-template-columns: 1fr; } }
