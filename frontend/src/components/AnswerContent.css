@@ -1,0 +1,9 @@
+.answer-content { display: grid; gap: 20px; min-width: 0; margin-bottom: 22px; }
+.answer-content-section { min-width: 0; }
+.answer-content-section h3 { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: #285b48; }
+.answer-content-section p { margin: 0; color: #29463d; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.answer-content-correction { padding: 18px 20px; border: 1px solid #b9d9cf; border-left: 4px solid #28725b; border-radius: 10px; background: #eef8f5; }
+.answer-content-summary { padding: 18px 20px; border: 1px solid #e6e2d8; border-radius: 10px; background: #f8f7f0; }
+.answer-content-summary h3 { color: #846021; }
+.answer-content-empty { color: #647d74; line-height: 1.7; }
+@media (max-width: 760px) { .answer-content-correction, .answer-content-summary { padding: 15px; } }

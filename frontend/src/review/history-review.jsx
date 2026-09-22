@@ -17,6 +17,12 @@ function Review() {
   const photo = photos.find((item) => item.id === 'seoul');
   const photoCitation = { ...records[0].citations[0], document_id: 'aks:E0002442' };
   const previewResult = { ...records[0], search_record_id: 'review-1', summary: '화면 검증용 요약입니다.', citations: [photoCitation], media: preview === 'photo' || preview === 'broken' ? [{ document_id: 'aks:E0002442', article_title: photo.name, images: [{ ...photo, url: new URL(preview === 'broken' ? '/heritage/missing-test.jpg' : photo.image, window.location.origin).href }] }] : [] };
+  if (preview === 'correction-duplicate') {
+    Object.assign(previewResult, { response_type: 'corrected_premise',
+      message: '🙂 검증용 정정입니다. 원문 줄바꿈을 유지합니다.\n동일 문구에서도 제보할 수 있습니다.',
+      summary: '🙂 검증용 정정입니다. 원문 줄바꿈을 유지합니다.\n동일 문구에서도 제보할 수 있습니다.',
+      premise_correction: { corrected_premise: '🙂 검증용 정정입니다. 원문 줄바꿈을 유지합니다.\n동일 문구에서도 제보할 수 있습니다.' } });
+  }
   const [calls, setCalls] = useState([]);
   const [request] = useState(() => async (path, options = {}) => {
     const method = options.method || 'GET';
@@ -33,7 +39,7 @@ function Review() {
   const [failedRequest] = useState(() => (path, options) => path.startsWith('me/searches?') ? Promise.reject(new Error('기록 목록을 불러오지 못했습니다.')) : request(path, options));
   return <><aside style={{ padding: 16, background: '#fff0c9' }}><b>가상 회원 기록 검증 · 실제 API/DB 미사용</b><p>기록 선택 시 GET 상세 조회만 추가되는지 확인합니다.</p>
     <label>검증 상황 <select value={mode} onChange={(event) => setMode(event.target.value)}><option value="normal">기록 있음</option><option value="empty">기록 없음</option><option value="failed">목록 조회 실패</option></select></label>
-    <p><label>화면 확인 <select value={preview} onChange={(event) => setPreview(event.target.value)}><option value="app">메인·검색 기록</option><option value="loading">답변 준비 중</option><option value="photo">사진 있는 답변</option><option value="no-photo">사진 없는 답변</option><option value="broken">사진 로드 실패</option><option value="report-v2">PR #20 오류 제보</option><option value="report-fail">오류 제보 전송 실패</option></select></label></p>
+    <p><label>화면 확인 <select value={preview} onChange={(event) => setPreview(event.target.value)}><option value="app">메인·검색 기록</option><option value="loading">답변 준비 중</option><option value="photo">사진 있는 답변</option><option value="no-photo">사진 없는 답변</option><option value="broken">사진 로드 실패</option><option value="correction-duplicate">정정·요약·본문 중복</option><option value="report-v2">PR #20 오류 제보</option><option value="report-fail">오류 제보 전송 실패</option></select></label></p>
     <details><summary>검증 요청 내역</summary><pre>{calls.join('\n')}</pre></details></aside>
     {preview === "app" ? <App key={mode} request={mode === 'empty' ? emptyRequest : mode === 'failed' ? failedRequest : request} /> : <AnswerView key={preview} question={records[0].question} level="general" result={preview === "loading" ? null : previewResult} loading={preview === "loading"} loadingRecord={false} onBack={() => setPreview("app")} onChangeLevel={() => {}} reportMode={preview === "report-v2" ? "v2" : "legacy"} onSubmitReport={async (payload) => { setCalls((items) => [...items, "가상 제보: " + JSON.stringify(payload)]); if (preview === "report-fail") throw new Error("검증용 전송 실패: 입력 내용을 유지합니다."); }} onAsk={() => {}} />}
   </>;
