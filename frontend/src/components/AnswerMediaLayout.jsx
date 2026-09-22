@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import './AnswerMediaLayout.css';
+import preparedPhotos from '../data/heritagePhotos.json';
 
 const httpUrl = (value) => {
   try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; } catch { return null; }
@@ -11,7 +12,7 @@ export default function AnswerMediaLayout({ media, citations = [], children }) {
   const [index, setIndex] = useState(0);
   const images = useMemo(() => {
     const seen = new Set();
-    return (Array.isArray(media) ? media : []).flatMap((group) => {
+    const resolved = (Array.isArray(media) ? media : []).flatMap((group) => {
       const citation = citations.find((item) => item.document_id && item.document_id === group?.document_id);
       if (!citation || !Array.isArray(group.images)) return [];
       return [...group.images].sort((a, b) => Number(b?.role === 'head') - Number(a?.role === 'head')).flatMap((photo) => {
@@ -21,6 +22,11 @@ export default function AnswerMediaLayout({ media, citations = [], children }) {
         return [{ ...photo, url, articleTitle: group.article_title || citation.title, source: httpUrl(citation.source_url) }];
       });
     });
+    if (resolved.length) return resolved;
+    // Prepared photos are valid only for the exact cited article, never a fuzzy title match.
+    return preparedPhotos.filter((photo) => citations.some((citation) => citation.document_id === `aks:${photo.eid}`)
+      && /^KOGL[1-4]$/.test(photo.kogl_type) && photo.image.startsWith('/heritage/photos/') && !failed[photo.image])
+      .map((photo) => ({ ...photo, url: photo.image, articleTitle: photo.article_title, source: httpUrl(photo.source_page) }));
   }, [media, citations, failed]);
   const selectedIndex = Math.min(index, Math.max(0, images.length - 1));
   const photo = images[selectedIndex];

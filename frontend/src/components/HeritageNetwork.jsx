@@ -12,14 +12,15 @@ export default function HeritageNetwork(props) {
   return <Explorer key={props.answerKey} {...props} />;
 }
 
-function Explorer({ question, citations = [], request = fetchHeritageNetwork }) {
+function Explorer({ question, onAsk, citations = [], request = fetchHeritageNetwork }) {
   const documentIds = [...new Set(citations.map((citation) => citation.document_id)
     .filter((id) => /^aks:[A-Za-z0-9_-]{1,64}$/.test(id || "")))].slice(0, 10).join(",");
   const explorer = useMemo(() => createNetworkExplorer(request, { question, document_ids: documentIds }), [request, question, documentIds]);
   const state = useSyncExternalStore(explorer.subscribe, explorer.getSnapshot, explorer.getSnapshot);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   const [wide, setWide] = useState(false);
-  useEffect(() => () => explorer.cancel(), [explorer]);
+  useEffect(() => { explorer.open(); return () => explorer.cancel(); }, [explorer]);
   const root = state.data?.root;
   return <section className={`heritage-network${wide ? " is-wide" : ""}`} aria-label="함께 알아보기">
     <div className="heritage-network-heading"><div><h2>함께 알아보기</h2><p>이름·분류·지역 정보가 연결되는 다른 유산을 찾아보세요.</p></div>
@@ -38,7 +39,8 @@ function Explorer({ question, citations = [], request = fetchHeritageNetwork }) 
         <ul>{state.data.candidates.map((candidate) => <li key={candidate.document_id}><button type="button" disabled={state.busy} onClick={() => explorer.select(candidate.document_id)}>{candidate.title}<small>{[candidate.field, candidate.item_type].filter(Boolean).join(" · ")}</small></button></li>)}</ul></div>}
       {root && <div aria-busy={state.busy}><div className="heritage-network-root"><h3>{root.title}</h3><p>{(root.fields || []).map(([label, value]) => `${label}: ${value}`).join(" · ")}</p><SourceLink url={root.source_url} /></div>
         {!state.data.branches?.length && <p>현재 목록에서 연결할 항목을 찾지 못했습니다.</p>}
-        <div className="heritage-network-branches">{(state.data.branches || []).map((branch) => <section key={branch.title}><h4>{branch.title}</h4><p>{branch.note}</p><ul>{branch.nodes.map((node) => <li key={node.document_id}><button type="button" disabled={state.busy} onClick={() => explorer.select(node.document_id)}>{node.title}<small>{node.reason}</small></button></li>)}</ul></section>)}</div></div>}
+        <div className="heritage-network-branches">{(showAll ? state.data.branches || [] : (state.data.branches || []).slice(0, 3)).map((branch) => <section key={branch.title}><h4>{branch.title}</h4><details><summary>연결 기준</summary><p>{branch.note}</p></details><ul>{(showAll ? branch.nodes : branch.nodes.slice(0, 3)).map((node) => <li key={node.document_id}><button type="button" disabled={state.busy} onClick={() => onAsk ? onAsk(`${node.title}의 위치와 특징은 무엇인가요?`) : explorer.select(node.document_id)}>{node.title}<small>{onAsk ? "질문으로 알아보기 →" : node.reason}</small></button>{onAsk && <button type="button" className="network-explore" aria-label={`${node.title} 연관 탐색`} disabled={state.busy} onClick={() => explorer.select(node.document_id)}>연관 탐색</button>}</li>)}</ul></section>)}</div>
+        {(state.data.branches?.length > 3 || state.data.branches?.some((branch) => branch.nodes.length > 3)) && <button type="button" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{showAll ? '간단히 보기' : '연관 항목 더 보기'}</button>}</div>}
     </div>}
   </section>;
 }
