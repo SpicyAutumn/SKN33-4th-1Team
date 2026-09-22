@@ -1,6 +1,5 @@
 import json
 import os
-import unittest
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -8,13 +7,13 @@ import django
 
 django.setup()
 
-from django.test import RequestFactory, override_settings
+from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from api.views import ADMIN_SESSION_COOKIE, admin_dashboard, admin_login, admin_session
 
 
 @override_settings(ADMIN_DASHBOARD_PASSWORD="test-admin-password")
-class AdminDashboardAccessTest(unittest.TestCase):
+class AdminDashboardAccessTest(SimpleTestCase):
     def setUp(self):
         self.factory = RequestFactory()
 
