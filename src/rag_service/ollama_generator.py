@@ -13,7 +13,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "response-type-v2-summary-ollama"
+PROMPT_VERSION = "response-type-v3-complete-summary-ollama"
 MODEL_OUTPUT_FIELDS = {
     "candidate_response_type",
     "summary",
@@ -40,7 +40,7 @@ OLLAMA_OUTPUT_SCHEMA: dict[str, Any] = {
                 "out_of_scope",
             ],
         },
-        "summary": {"type": "string", "minLength": 1, "maxLength": 240},
+        "summary": {"type": "string", "minLength": 1},
         "draft_message": {"type": "string", "minLength": 1},
         "used_chunk_ids": STRING_ARRAY_SCHEMA,
         "clarification": {
@@ -157,7 +157,10 @@ SYSTEM_PROMPT = """당신은 검색된 역사·문화 문서를 근거로 답변
 - related_topic_candidates
 
 [출력 규칙]
-- summary는 화면의 '핵심 요약'에 바로 표시할 한국어 1~2문장이다. answered와
+- summary는 화면의 '핵심 요약'에 바로 표시할 완결된 한국어 1~2문장이다.
+  글자 수 제한은 없지만 핵심 결론만 간결하게 쓰고, 세부 사례와 부연 설명은
+  draft_message에 남긴다. 연결 어미로 끝내지 말고 각 문장을 종결 어미와
+  마침표(질문은 물음표)로 반드시 끝맺는다. answered와
   corrected_premise에서는 draft_message의 결론과 가장 중요한 근거만 짧게 요약하고,
   draft_message나 검색 문맥에 없는 사실은 쓰지 않는다. 다른 응답 유형에서는
   summary에 draft_message와 같은 안내 문구를 넣는다.
@@ -267,6 +270,7 @@ def _repair_chunk_ids(model_output: dict[str, Any], allowed: list[str]) -> None:
         model_output["draft_message"] = (
             "현재 확보한 자료에서는 질문에 답할 충분한 근거를 찾지 못했습니다."
         )
+        model_output["summary"] = model_output["draft_message"]
     model_output["used_chunk_ids"] = used
 
     correction = model_output.get("premise_correction")
@@ -278,6 +282,7 @@ def _repair_chunk_ids(model_output: dict[str, Any], allowed: list[str]) -> None:
             model_output["draft_message"] = (
                 "현재 확보한 자료에서는 질문의 전제를 바로잡을 충분한 근거를 찾지 못했습니다."
             )
+            model_output["summary"] = model_output["draft_message"]
             model_output["used_chunk_ids"] = []
             model_output["premise_correction"] = None
 
@@ -337,17 +342,27 @@ def _first_sentence(message: str) -> str:
     return sentences[0].strip() if sentences else message.strip()
 
 
-def _fallback_summary(message: str) -> str:
-    """Keep an answer available when an older model omits only ``summary``.
+def _complete_summary(summary: str, message: str) -> str:
+    """Select up to two sentences using punctuation or known Korean endings.
 
-    The current prompt and JSON schema ask the model for this field.  Some
-    local model builds can still return the prior contract during a cold start
-    or after an upgrade.  Treat that narrow case as a compatibility fallback,
-    rather than turning an otherwise grounded answer into a 502 response.
+    This is a surface heuristic, not a Korean grammar/meaning checker. Splitting
+    only at whitespace/end preserves decimal numbers and dotted names.
     """
-    normalized = re.sub(r"\s+", " ", str(message or "")).strip()
-    sentences = re.findall(r"[^.!?。！？]+[.!?。！？]?", normalized)
-    return " ".join(sentence.strip() for sentence in sentences[:2] if sentence.strip()) or normalized
+    for text in (summary, message):
+        normalized = re.sub(r"\s+", " ", str(text or "")).strip()
+        complete = []
+        start = 0
+        for ending in re.finditer(r'''[.!?。！？]["'”’」』)]*(?:\s+|$)''', normalized):
+            complete.append(normalized[start:ending.end()].strip())
+            start = ending.end()
+        # Conservative Korean ending heuristic, not a semantic classifier.
+        # Preserve an unpunctuated final sentence without inventing punctuation.
+        tail = normalized[start:].strip()
+        if re.search(r'''(?:[가-힣]니다|한다|된다|했다|됐다|있다|없다|이다|해요|돼요|예요|이에요|가요|나요|까요)["'”’」』)]*$''', tail):
+            complete.append(tail)
+        if complete:
+            return " ".join(complete[:2])
+    raise ValueError("Neither summary nor draft_message contains a complete sentence")
 
 
 def _normalize_corrected_premise(model_output: dict[str, Any], question: str) -> None:
@@ -490,6 +505,10 @@ class OllamaGenerator:
         # 최종 상세 필드 모양을 한 번 더 계약에 맞춘다.
         _normalize_corrected_premise(model_output, generation_request["question"])
         _clean_correction_summary(model_output)
+        if isinstance(model_output["summary"], str) and isinstance(model_output["draft_message"], str):
+            model_output["summary"] = _complete_summary(
+                model_output["summary"], model_output["draft_message"]
+            )
 
         prompt_tokens = self._non_negative_int(response.get("prompt_eval_count"))
         completion_tokens = self._non_negative_int(response.get("eval_count"))
@@ -615,7 +634,8 @@ class OllamaGenerator:
         # immediately previous contract as a compatibility path for a running
         # Ollama model that has not yet begun emitting summary.
         if set(parsed) == MODEL_OUTPUT_FIELDS - {"summary"}:
-            parsed["summary"] = _fallback_summary(parsed.get("draft_message", ""))
+            # Defer body fallback until correction cleanup and evidence repair.
+            parsed["summary"] = ""
         if set(parsed) != MODEL_OUTPUT_FIELDS:
             raise ValueError("Ollama model output fields do not match the generation contract")
         # 관련 주제 기능은 현재 RagServiceConfig에서 꺼져 있다. Qwen이 문자열 후보를
