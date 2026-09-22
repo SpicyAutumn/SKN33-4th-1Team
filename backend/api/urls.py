@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, search_links
 from .network_views import heritage_network
 
 
@@ -15,6 +15,9 @@ urlpatterns = [
     path("v1/me", views.my_profile),
     path("v1/me/password", views.my_password),
     path("v1/searches", views.searches),
+    path("v1/searches/<uuid:result_id>", search_links.search_result),
+    path("v1/searches/<uuid:result_id>/share", search_links.share_result),
+    path("v1/shared-searches/<uuid:share_token>", search_links.shared_result),
     path("v1/me/searches", views.my_searches),
     path("v1/me/searches/<uuid:record_id>", views.my_search_detail),
     path("v1/me/error-reports", views.error_reports),
