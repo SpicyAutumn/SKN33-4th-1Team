@@ -100,3 +100,30 @@ def test_failed_migration_is_not_retried_and_sets_review_marker(tmp_path, monkey
         server.start_release(tmp_path, "127.0.0.1")
     assert len([c for c in calls if "run" in c]) == 1
     assert (tmp_path / "database-review-required.json").exists()
+
+
+def test_no_preview_prs_still_deploys_main(tmp_path, monkeypatch):
+    import base64
+    import json
+    import sys
+    from types import SimpleNamespace
+
+    server = load_server()
+    monkeypatch.setattr(server, "ROOT", tmp_path)
+    (tmp_path / ".test-server").touch()
+    (tmp_path / "test-api.env").touch()
+    (tmp_path / "server.json").write_text('{"public_ip":"127.0.0.1"}')
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data/aks_bm25_v1.sqlite3").touch()
+    (tmp_path / "data/aks_article_medias.jsonl").touch()
+    payload = base64.b64encode(json.dumps({"main_sha": "a" * 40, "prs": []}).encode()).decode()
+    monkeypatch.setattr(sys, "argv", ["server.py", payload])
+    monkeypatch.setitem(sys.modules, "fcntl", SimpleNamespace(LOCK_EX=1, flock=lambda *a: None))
+    calls = []
+    monkeypatch.setattr(server, "create_source", lambda release, sha, prs: calls.append((sha, prs)))
+    monkeypatch.setattr(server, "configure_release", lambda *a: None)
+    monkeypatch.setattr(server, "compose", lambda *a: None)
+    monkeypatch.setattr(server, "start_release", lambda *a: calls.append("started"))
+    server.main()
+    assert calls == [("a" * 40, []), "started"]
+    assert json.loads((tmp_path / "active.json").read_text())["prs"] == []

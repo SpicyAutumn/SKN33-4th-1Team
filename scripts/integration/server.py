@@ -158,7 +158,7 @@ def compose_config(release: Path, public_ip: str) -> dict[str, object]:
                 "depends_on": {"backend": {"condition": "service_healthy"}},
             },
         },
-        "volumes": {"db": {"name": "heritage-integration_db"}},
+        "volumes": {"db": {"name": f"{PROJECT}_db"}},
         "networks": {"default": {}, "database": {"internal": True}},
     }
 
@@ -174,7 +174,7 @@ def configure_release(release: Path, public_ip: str) -> None:
         else:
             # Never guess credentials for an orphaned, existing data volume.
             found = command("sudo", "-n", "docker", "volume", "ls", "--format", "{{.Name}}", capture=True)
-            if "heritage-integration_db" in found.splitlines():
+            if f"{PROJECT}_db" in found.splitlines():
                 raise RuntimeError("Existing test volume has no credentials; recover ROOT/mysql.env first")
             content = "\n".join(("MYSQL_DATABASE=integration", "MYSQL_USER=integration",
                                   f"MYSQL_PASSWORD={secrets.token_hex(24)}",
@@ -285,10 +285,7 @@ def main() -> None:
         if (ROOT / "database-review-required.json").exists():
             raise RuntimeError("Prior deployment needs database review; do not start old code against changed schema")
         previous = active_release()
-        if not prs:
-            stop_active()
-            print("INTEGRATION_RESULT=" + json.dumps({"state": "stopped", "url": f"http://{public_ip}"}))
-            return
+        # With no preview PRs, keep the latest main available against the same DB.
         release = releases / secrets.token_hex(8)
         release.mkdir(mode=0o700)
         switched = False

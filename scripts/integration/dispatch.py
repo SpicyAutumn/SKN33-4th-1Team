@@ -104,11 +104,11 @@ sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
         # returning stdout. A successful controller command is still reliable:
         # it validates the requested immutable revisions before publishing.
         if record is None:
-            record = {"state": "ready" if prs else "stopped", "url": test_url, "main_sha": main_sha,
+            record = {"state": "ready", "url": test_url, "main_sha": main_sha,
                       "prs": [pr["number"] for pr in prs]}
         url = record.get("url", test_url)
         if record["state"] == "ready":
-            included = ", ".join(f"#{number}" for number in record["prs"])
+            included = ", ".join(f"#{number}" for number in record["prs"]) or "없음 (최신 main)"
             message = (f"공용 통합 테스트 반영 완료: {url}\n\n"
                        f"포함 PR: {included}\n기준 main: `{record['main_sha'][:12]}`\n"
                        "이 사이트의 DB는 테스트 전용이며, 다음 통합 배포에도 유지됩니다.")
