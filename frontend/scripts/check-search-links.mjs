@@ -49,6 +49,7 @@ async function mock(context, owner, member = false, admin = false) {
 try {
   const context = await browser.newContext();
   await mock(context, true);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(base);
@@ -68,17 +69,18 @@ try {
   await page.getByText("저장된 답변 2", { exact: true }).waitFor();
   await page.goBack();
   await page.getByText("저장된 답변 1", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "링크 공유", exact: true }).click();
-  const linkInput = page.getByRole("textbox", { name: "공유 주소", exact: true });
-  await linkInput.waitFor();
-  assert.equal(await linkInput.inputValue(), `${base}/share/${token}`);
+  await page.getByRole("button", { name: "공유하기", exact: true }).click();
+  await page.getByText("복사되었습니다", { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), `${base}/share/${token}`);
+  assert.equal(await page.getByRole("textbox", { name: "공유 주소", exact: true }).count(), 0);
+  await page.getByText("복사되었습니다", { exact: true }).waitFor({ state: "hidden" });
   const visitor = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await mock(visitor, false);
   const publicPage = await visitor.newPage();
   publicPage.on("pageerror", error => errors.push(error.message));
   await publicPage.goto(`${base}/share/${token}`);
   await publicPage.getByText("저장된 답변 1", { exact: true }).waitFor();
-  assert.equal(await publicPage.getByText("공유된 답변입니다.", { exact: true }).count(), 1);
+  await publicPage.getByRole("button", { name: "공유하기", exact: true }).waitFor();
   assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "mobile layout should fit viewport");
   if (process.env.SCREENSHOT_DIR) await publicPage.screenshot({ path: `${process.env.SCREENSHOT_DIR}/share-header-mobile.png` });
   await publicPage.reload();
@@ -102,7 +104,7 @@ try {
   await memberPage.getByRole("button", { name: /경복궁은 왜 지어졌나요/ }).click();
   await memberPage.waitForURL(`**/mypage/searches/${first}`);
   await memberPage.getByText("저장된 답변 1", { exact: true }).waitFor();
-  await memberPage.getByRole("button", { name: "링크 공유", exact: true }).waitFor();
+  await memberPage.getByRole("button", { name: "공유하기", exact: true }).waitFor();
   await memberPage.reload();
   await memberPage.getByText("요약 1", { exact: true }).waitFor();
   await memberPage.goBack();
@@ -124,7 +126,7 @@ try {
   for (const name of ["초등학생", "중·고등학생", "성인 일반"]) {
     assert.equal(await adminPage.getByRole("button", { name, exact: true }).isDisabled(), true);
   }
-  assert.equal(await adminPage.getByRole("button", { name: "링크 공유", exact: true }).count(), 0);
+  assert.equal(await adminPage.getByRole("button", { name: "공유하기", exact: true }).count(), 0);
   await adminPage.reload();
   await adminPage.getByText("저장된 답변 1", { exact: true }).waitFor();
   await adminPage.goBack();
