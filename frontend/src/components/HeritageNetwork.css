@@ -23,12 +23,10 @@
 .answer-support > .heritage-network { min-width:0; margin:0; padding:0 0 0 24px; border:0; border-left:1px solid #dce4dd; border-radius:0; background:transparent; }
 .answer-support.no-evidence { grid-template-columns:minmax(0,1fr); }
 .answer-support.no-evidence > .heritage-network { padding-left:0; border-left:0; }
-.answer-support:has(.heritage-network.is-wide) { grid-template-columns:minmax(0,1fr); }
-.answer-support > .heritage-network.is-wide { padding:20px 0 0; border-left:0; border-top:1px solid #dce4dd; }
 .answer-support .heritage-network-root { background:#285847; color:white; }
 .answer-support .heritage-network-root a { color:#edf5e9; }
-.answer-support .heritage-network-branches { display:block; margin-left:16px; }
-.answer-support .heritage-network-branches > section { position:relative; padding:0 0 22px 22px; border-left:2px solid #cad9c5; }
+.answer-support .heritage-network-branches { display:block; margin-left:12px; }
+.answer-support .heritage-network-branches > section { position:relative; padding:0 0 12px 18px; border-left:2px solid #cad9c5; }
 .answer-support .heritage-network-branches > section::before { content:""; position:absolute; left:-2px; top:0; width:16px; height:15px; border-left:2px solid #cad9c5; border-bottom:2px solid #cad9c5; border-radius:0 0 0 10px; }
 .answer-support .heritage-network-branches h4 { display:inline-block; padding:4px 9px; background:#eef3e9; border-radius:7px; }
 .answer-support .heritage-network-branches ul { display:flex; flex-wrap:wrap; gap:7px; }
@@ -40,3 +38,11 @@
  .answer-support > .heritage-network { padding:20px 0 0; border-left:0; border-top:1px solid #dce4dd; }
 }
 .answer-support:not(:has(.heritage-network)) { grid-template-columns:minmax(0,1fr); }
+.heritage-network-branches li { display:flex; flex-direction:column; gap:3px; }
+
+.heritage-network .heritage-network-note { margin:5px 0 10px; font-size:12px; }
+.heritage-network .heritage-network-root { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 12px; margin:10px 0 12px; }
+.heritage-network .heritage-network-root h3 { margin:0; font-size:15px; }
+.heritage-network .heritage-network-root a { font-size:11px; margin-left:auto; }
+.answer-support .heritage-network-branches h4 { font-size:12px; margin:0 0 6px; padding:3px 7px; }
+.answer-support .heritage-network-branches li button { padding:7px 9px; line-height:1.4; min-height:32px; }

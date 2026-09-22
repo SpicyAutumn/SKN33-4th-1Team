@@ -232,7 +232,10 @@ class Catalog:
 
     def question_candidates(self, question: str, document_ids: Iterable[str] = ()) -> list[Entry]:
         """서로 다른 대상과 동명 문서를 보존하고, 긴 이름 안의 짧은 표제어만 제외한다."""
-        asked = _search_key(question)
+        # Request wording is not an entity: e.g. 주세 inside 알려주세요.
+        subject = re.sub(r"(?:알려|설명해|소개해|보여|말해)\s*(?:주세요|주십시오|줘요?|주실래요)|부탁(?:합니다|드려요)", " ", question)
+        subject = re.sub(r"의\s*위치와\s*특징은\s*무엇인가요[?.!\s]*$", "", subject)
+        asked = _search_key(subject)
         matches = []
         for title, entry in self.search_titles:
             start = asked.find(title)

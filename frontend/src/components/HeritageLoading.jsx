@@ -33,7 +33,7 @@ export default function HeritageLoading() {
   useEffect(() => {
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const timer = window.setInterval(() => {
-      if (paused || document.hidden || motion.matches || !area.current || area.current.matches(':hover') || area.current.contains(document.activeElement) || area.current.querySelector('details[open]')) return;
+      if (paused || document.hidden || motion.matches || !area.current || area.current.contains(document.activeElement) || area.current.querySelector('details[open]')) return;
       advance();
     }, 3000);
     return () => window.clearInterval(timer);
