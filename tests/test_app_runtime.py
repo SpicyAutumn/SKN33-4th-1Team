@@ -1,6 +1,6 @@
-"""Track C 화면 로직 단위 테스트.
+"""백엔드가 사용하는 app/ 런타임 모듈 단위 테스트.
 
-Streamlit 실행 없이 순수 함수만 확인한다. 외부 API는 호출하지 않는다.
+rag_client·retrieval·regions·heritage_graph의 순수 함수만 확인한다. 외부 API는 호출하지 않는다.
 """
 
 from __future__ import annotations
@@ -19,14 +19,7 @@ for path in (PROJECT_ROOT / "app", PROJECT_ROOT / "src"):
 import rag_client  # noqa: E402
 import regions  # noqa: E402
 import retrieval  # noqa: E402
-from components.citations import group_by_document  # noqa: E402
-from tabs.chat import _reusable_contexts  # noqa: E402
 import heritage_graph  # noqa: E402
-from tabs.evaluation import (  # noqa: E402
-    ANSWER_METRICS,
-    _evaluate_once,
-    _metric_display_value,
-)
 
 
 def context(
@@ -52,105 +45,6 @@ def context(
         "score_type": "similarity",
         "metadata": metadata or {},
     }
-
-
-class EvaluationMetricDisplayTest(unittest.TestCase):
-    def test_displays_completed_ragas_score(self):
-        result = {
-            "metrics": {
-                "faithfulness": {
-                    "score": 0.87654,
-                    "status": "completed",
-                    "message": None,
-                }
-            }
-        }
-        self.assertEqual(_metric_display_value("faithfulness", result), "0.877")
-
-
-class AutomaticRagasEvaluationTest(unittest.TestCase):
-    def test_new_answer_is_evaluated_once_and_then_reuses_cache(self):
-        calls = []
-        expected = {"metrics": {"faithfulness": {"score": 1.0}}}
-
-        def evaluator(**kwargs):
-            calls.append(kwargs)
-            return expected
-
-        cache = {}
-        errors = {}
-        arguments = {
-            "cache": cache,
-            "errors": errors,
-            "cache_key": "same-input",
-            "question": "훈민정음은 누가 만들었나요?",
-            "answer": "세종이 창제했습니다.",
-            "contexts": [{"content": "세종이 훈민정음을 창제하였다."}],
-            "reference": None,
-            "evaluator": evaluator,
-        }
-
-        first, first_error = _evaluate_once(**arguments)
-        second, second_error = _evaluate_once(**arguments)
-
-        self.assertIs(first, expected)
-        self.assertIs(second, expected)
-        self.assertIsNone(first_error)
-        self.assertIsNone(second_error)
-        self.assertEqual(len(calls), 1)
-
-    def test_failed_evaluation_is_not_repeated_on_streamlit_rerun(self):
-        calls = []
-
-        def evaluator(**kwargs):
-            calls.append(kwargs)
-            raise RuntimeError("external failure")
-
-        cache = {}
-        errors = {}
-        arguments = {
-            "cache": cache,
-            "errors": errors,
-            "cache_key": "failed-input",
-            "question": "질문",
-            "answer": "답변",
-            "contexts": [],
-            "reference": None,
-            "evaluator": evaluator,
-        }
-
-        first, first_error = _evaluate_once(**arguments)
-        second, second_error = _evaluate_once(**arguments)
-
-        self.assertIsNone(first)
-        self.assertIsNone(second)
-        self.assertEqual(first_error, second_error)
-        self.assertEqual(len(calls), 1)
-
-
-class CitationGroupingTest(unittest.TestCase):
-    def test_same_document_chunks_merge_and_keep_rank_order(self):
-        groups = group_by_document(
-            [
-                context(chunk_id="c4", document_id="d1", title="길쌈노래", rank=4, section="classification"),
-                context(chunk_id="c2", document_id="d2", title="경복궁", rank=2),
-                context(chunk_id="c1", document_id="d1", title="길쌈노래", rank=1, section="definition"),
-            ]
-        )
-        self.assertEqual([g["title"] for g in groups], ["길쌈노래", "경복궁"])
-        self.assertEqual([i["section"] for i in groups[0]["items"]], ["definition", "classification"])
-
-    def test_missing_document_id_does_not_merge_different_chunks(self):
-        groups = group_by_document(
-            [
-                {"chunk_id": "a", "title": "같은 제목", "content": "1", "retrieval_rank": 1},
-                {"chunk_id": "b", "title": "같은 제목", "content": "2", "retrieval_rank": 2},
-            ]
-        )
-        self.assertEqual(len(groups), 2)
-
-    def test_empty_input(self):
-        self.assertEqual(group_by_document([]), [])
 
 
 class EvidenceSelectionTest(unittest.TestCase):
@@ -537,16 +431,6 @@ class RetrievalReuseTest(unittest.TestCase):
         self.assertEqual(second[0]["title"], "경복궁")
         self.assertIsNot(first, second)
 
-    def test_same_question_reuses_nonempty_contexts(self):
-        contexts = [context(chunk_id="c1", document_id="d1", title="경복궁")]
-        last_result = {"question": "경복궁이 뭐야?", "retrieved_contexts": contexts}
-        self.assertIs(_reusable_contexts(last_result, "경복궁이 뭐야?"), contexts)
-
-    def test_different_question_or_empty_result_runs_a_new_search(self):
-        last_result = {"question": "경복궁이 뭐야?", "retrieved_contexts": []}
-        self.assertIsNone(_reusable_contexts(last_result, "창덕궁이 뭐야?"))
-        self.assertIsNone(_reusable_contexts(last_result, "경복궁이 뭐야?"))
-
     def test_selected_source_excludes_other_documents_from_new_search_results(self):
         class Retriever:
             def fetch_by_ids(self, chunk_ids):
@@ -842,23 +726,6 @@ class EvidenceCheckerStateTest(unittest.TestCase):
     def test_empty_contexts_are_insufficient(self):
         self.checker.begin_request()
         self.assertEqual(self.checker.decide("경복궁은?", []), "insufficient")
-
-class AnswerMetricsTest(unittest.TestCase):
-    """평가 탭에는 답변 층 지표만 둔다 (PR #28)."""
-
-    def test_only_answer_layer_metrics_are_shown(self):
-        self.assertEqual(list(ANSWER_METRICS), ["faithfulness", "answer_relevancy"])
-
-    def test_retrieval_layer_metrics_are_not_shown(self):
-        """정답 라벨이 있어야 계산되는 지표다. 임의 질문에서는 늘 평가 불가로 남는다."""
-        self.assertNotIn("context_precision", ANSWER_METRICS)
-        self.assertNotIn("context_recall", ANSWER_METRICS)
-
-    def test_each_metric_explains_itself(self):
-        for name, detail in ANSWER_METRICS.items():
-            with self.subTest(metric=name):
-                self.assertEqual(set(detail), {"title", "short", "definition", "improvement"})
-                self.assertTrue(all(str(v).strip() for v in detail.values()))
 
 if __name__ == "__main__":
     unittest.main()
