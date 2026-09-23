@@ -1,0 +1,439 @@
+{
+  "choice": {
+    "mode": "catalog",
+    "requires_selection": true,
+    "candidate_count": 2,
+    "candidates": [
+      {
+        "document_id": "aks:E0002434",
+        "title": "경복궁",
+        "field": "예술·체육/건축",
+        "item_type": "유적/건물"
+      },
+      {
+        "document_id": "aks:E0055378",
+        "title": "창덕궁",
+        "field": "예술·체육/건축",
+        "item_type": "유적/건물"
+      }
+    ]
+  },
+  "maps": {
+    "aks:E0002434": {
+      "root": {
+        "document_id": "aks:E0002434",
+        "title": "경복궁",
+        "fields": [
+          [
+            "시대",
+            "조선/조선 전기"
+          ],
+          [
+            "분야",
+            "예술·체육/건축"
+          ],
+          [
+            "유형",
+            "유적/건물"
+          ]
+        ],
+        "summary": "",
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0002434"
+      },
+      "branches": [
+        {
+          "title": "이름이 연결되는 유산",
+          "note": "이름이 `경복궁`으로 시작하는 항목입니다. 실제 소속 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0002435",
+              "title": "경복궁 강녕전",
+              "reason": "이름이 경복궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0002435"
+            },
+            {
+              "document_id": "aks:E0002436",
+              "title": "경복궁 건청궁",
+              "reason": "이름이 경복궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "역사/근대사",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0002436"
+            },
+            {
+              "document_id": "aks:E0002437",
+              "title": "경복궁 건춘문",
+              "reason": "이름이 경복궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0002437"
+            },
+            {
+              "document_id": "aks:E0002438",
+              "title": "경복궁 경회루",
+              "reason": "이름이 경복궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0002438"
+            },
+            {
+              "document_id": "aks:E0002439",
+              "title": "경복궁 광화문",
+              "reason": "이름이 경복궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0002439"
+            }
+          ]
+        },
+        {
+          "title": "시대 : 조선",
+          "note": "목록의 분류가 같고 분야가 일치하는 항목입니다. 이름순으로 표시하며 역사적 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0000411",
+              "title": "가학루",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000411"
+            },
+            {
+              "document_id": "aks:E0000424",
+              "title": "가흥창지",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/터",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000424"
+            },
+            {
+              "document_id": "aks:E0000899",
+              "title": "갑사 강당",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000899"
+            },
+            {
+              "document_id": "aks:E0073088",
+              "title": "갑사 내원암",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0073088"
+            },
+            {
+              "document_id": "aks:E0000900",
+              "title": "갑사 대웅전",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000900"
+            }
+          ]
+        },
+        {
+          "title": "종류 : 유적",
+          "note": "목록의 분류가 같고 분야가 일치하는 항목입니다. 이름순으로 표시하며 역사적 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0000275",
+              "title": "가야산 산성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/가야",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000275"
+            },
+            {
+              "document_id": "aks:E0000298",
+              "title": "가은암산성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000298"
+            },
+            {
+              "document_id": "aks:E0076858",
+              "title": "각이찰성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/고구려",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0076858"
+            },
+            {
+              "document_id": "aks:E0000498",
+              "title": "각화사 귀부",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고려/고려 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/탑·비",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000498"
+            },
+            {
+              "document_id": "aks:E0000561",
+              "title": "간월사지",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/신라",
+              "field": "예술·체육/건축",
+              "item_type": "유적/터",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000561"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    },
+    "aks:E0055378": {
+      "root": {
+        "document_id": "aks:E0055378",
+        "title": "창덕궁",
+        "fields": [
+          [
+            "시대",
+            "조선/조선 전기"
+          ],
+          [
+            "분야",
+            "예술·체육/건축"
+          ],
+          [
+            "유형",
+            "유적/건물"
+          ]
+        ],
+        "summary": "",
+        "source_url": "https://encykorea.aks.ac.kr/Article/E0055378"
+      },
+      "branches": [
+        {
+          "title": "이름이 연결되는 유산",
+          "note": "이름이 `창덕궁`으로 시작하는 항목입니다. 실제 소속 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0055380",
+              "title": "창덕궁 금천교",
+              "reason": "이름이 창덕궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0055380"
+            },
+            {
+              "document_id": "aks:E0055381",
+              "title": "창덕궁 낙선재",
+              "reason": "이름이 창덕궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0055381"
+            },
+            {
+              "document_id": "aks:E0055382",
+              "title": "창덕궁 대조전",
+              "reason": "이름이 창덕궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0055382"
+            },
+            {
+              "document_id": "aks:E0016094",
+              "title": "창덕궁 돈화문",
+              "reason": "이름이 창덕궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0016094"
+            },
+            {
+              "document_id": "aks:E0055385",
+              "title": "창덕궁 부용정",
+              "reason": "이름이 창덕궁(으)로 시작",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0055385"
+            }
+          ]
+        },
+        {
+          "title": "시대 : 조선",
+          "note": "목록의 분류가 같고 분야가 일치하는 항목입니다. 이름순으로 표시하며 역사적 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0000411",
+              "title": "가학루",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000411"
+            },
+            {
+              "document_id": "aks:E0000424",
+              "title": "가흥창지",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 전기 | 조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/터",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000424"
+            },
+            {
+              "document_id": "aks:E0000899",
+              "title": "갑사 강당",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000899"
+            },
+            {
+              "document_id": "aks:E0073088",
+              "title": "갑사 내원암",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0073088"
+            },
+            {
+              "document_id": "aks:E0000900",
+              "title": "갑사 대웅전",
+              "reason": "같은 시대: 조선",
+              "summary": "",
+              "period": "조선/조선 후기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/건물",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000900"
+            }
+          ]
+        },
+        {
+          "title": "종류 : 유적",
+          "note": "목록의 분류가 같고 분야가 일치하는 항목입니다. 이름순으로 표시하며 역사적 관계를 뜻하지는 않습니다.",
+          "nodes": [
+            {
+              "document_id": "aks:E0000275",
+              "title": "가야산 산성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/가야",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000275"
+            },
+            {
+              "document_id": "aks:E0000298",
+              "title": "가은암산성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000298"
+            },
+            {
+              "document_id": "aks:E0076858",
+              "title": "각이찰성",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/고구려",
+              "field": "예술·체육/건축",
+              "item_type": "유적",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0076858"
+            },
+            {
+              "document_id": "aks:E0000498",
+              "title": "각화사 귀부",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고려/고려 전기",
+              "field": "예술·체육/건축",
+              "item_type": "유적/탑·비",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000498"
+            },
+            {
+              "document_id": "aks:E0000561",
+              "title": "간월사지",
+              "reason": "같은 종류: 유적",
+              "summary": "",
+              "period": "고대/삼국/신라",
+              "field": "예술·체육/건축",
+              "item_type": "유적/터",
+              "region": "",
+              "source_url": "https://encykorea.aks.ac.kr/Article/E0000561"
+            }
+          ]
+        }
+      ],
+      "mode": "catalog"
+    }
+  }
+}

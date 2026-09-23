@@ -1,0 +1,49 @@
+.heritage-network { margin-top: 24px; padding: 20px; border: 1px solid #ccd6d0; border-radius: 14px; color: #283d34; background: #f8faf7; overflow-wrap: anywhere; }
+.heritage-network .heritage-network-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.heritage-network h2 { margin: 0; font-size: 1.15rem; }
+.heritage-network h3, .heritage-network h4 { margin: 0 0 8px; }
+.heritage-network p { margin: 8px 0 12px; line-height: 1.65; font-size: .92rem; }
+.heritage-network button { border: 1px solid #abbfb1; border-radius: 8px; padding: 10px 14px; background: white; color: #284638; cursor: pointer; font: inherit; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.heritage-network button:hover { background: #eaf1eb; }
+.heritage-network button:focus-visible, .heritage-network a:focus-visible { outline: 3px solid #326e52; outline-offset: 3px; }
+.heritage-network button:disabled { opacity: .55; cursor: default; }
+.heritage-network .heritage-network-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+.heritage-network .heritage-network-note { color: #536358; }
+.heritage-network .heritage-network-root { padding: 16px; background: #e9f0e9; border-radius: 10px; margin: 16px 0; }
+.heritage-network a { color: #23573e; text-decoration: underline; }
+.heritage-network .heritage-network-branches { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 20px; }
+.heritage-network ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.heritage-network li button { width: 100%; }
+.heritage-network small { display: block; margin-top: 5px; color: #58695d; font-size: .8rem; }
+.heritage-network .heritage-network-error { border-left: 3px solid #9b4b35; padding: 10px 14px; margin: 12px 0; background: #fff2ed; }
+@media (max-width: 480px) { .heritage-network { padding: 14px; } }
+/* Answer support: evidence and related exploration share the lower row. */
+.answer-support { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; border-top:1px solid #dce4dd; margin-top:24px; padding-top:22px; align-items:start; }
+.answer-support > .evidence-sources { min-width:0; margin:0; padding:0; border:0; }
+.answer-support > .heritage-network { min-width:0; margin:0; padding:0 0 0 24px; border:0; border-left:1px solid #dce4dd; border-radius:0; background:transparent; }
+.answer-support.no-evidence { grid-template-columns:minmax(0,1fr); }
+.answer-support.no-evidence > .heritage-network { padding-left:0; border-left:0; }
+.answer-support .heritage-network-root { background:#285847; color:white; }
+.answer-support .heritage-network-root a { color:#edf5e9; }
+.answer-support .heritage-network-branches { display:block; margin-left:12px; }
+.answer-support .heritage-network-branches > section { position:relative; padding:0 0 12px 18px; border-left:2px solid #cad9c5; }
+.answer-support .heritage-network-branches > section::before { content:""; position:absolute; left:-2px; top:0; width:16px; height:15px; border-left:2px solid #cad9c5; border-bottom:2px solid #cad9c5; border-radius:0 0 0 10px; }
+.answer-support .heritage-network-branches h4 { display:inline-block; padding:4px 9px; background:#eef3e9; border-radius:7px; }
+.answer-support .heritage-network-branches ul { display:flex; flex-wrap:wrap; gap:7px; }
+.answer-support .heritage-network-branches li { max-width:100%; }
+.answer-support .heritage-network-branches li button { width:auto; padding:8px 10px; font-size:13px; }
+.answer-support .heritage-network-branches p { font-size:12px; }
+@media(max-width:760px) {
+ .answer-support { grid-template-columns:minmax(0,1fr); gap:20px; }
+ .answer-support > .heritage-network { padding:20px 0 0; border-left:0; border-top:1px solid #dce4dd; }
+}
+.answer-support:not(:has(.heritage-network)) { grid-template-columns:minmax(0,1fr); }
+.heritage-network-branches li { display:flex; flex-direction:column; gap:3px; }
+.heritage-network .heritage-network-reason { max-width:32ch; line-height:1.5; margin:0 0 8px; }
+
+.heritage-network .heritage-network-note { margin:5px 0 10px; font-size:12px; }
+.heritage-network .heritage-network-root { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 12px; margin:10px 0 12px; }
+.heritage-network .heritage-network-root h3 { margin:0; font-size:15px; }
+.heritage-network .heritage-network-root a { font-size:11px; margin-left:auto; }
+.answer-support .heritage-network-branches h4 { font-size:12px; margin:0 0 6px; padding:3px 7px; }
+.answer-support .heritage-network-branches li button { padding:7px 9px; line-height:1.4; min-height:32px; }

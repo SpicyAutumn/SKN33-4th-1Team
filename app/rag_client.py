@@ -297,6 +297,7 @@ class EvidencePassthroughGenerator:
             "request_id": request["request_id"],
             "interaction_id": request["interaction_id"],
             "candidate_response_type": "needs_clarification",
+            "summary": "한 번에 하나씩 물어봐 주세요.",
             "draft_message": "한 번에 하나씩 물어봐 주세요.",
             "audience_level": request["audience_level"],
             "used_chunk_ids": [],
@@ -435,7 +436,22 @@ class CompoundAwareGenerator:
         self.delegate = delegate
 
     def invoke(self, request: dict[str, Any]) -> dict[str, Any]:
-        if request.get("clarification_context") is None:
+        from rag_indexing.person_retriever import person_clarification
+
+        clarification = person_clarification(request.get("retrieved_contexts") or [])
+        if clarification is not None:
+            result = EvidencePassthroughGenerator()._clarification_result(request)
+            result["summary"] = result["draft_message"] = clarification["question"]
+            result["clarification"] = clarification
+            result["generation_metadata"]["prompt_version"] = "person-clarification-v1"
+            return result
+        contexts = request.get("retrieved_contexts") or []
+        selection_resolved = bool(contexts) and all(
+            c.get("metadata", {}).get("person_selection_resolved") is True for c in contexts
+        )
+        # Web choices contain a definition that may include several commas.
+        # A verified choice is not a new compound question.
+        if request.get("clarification_context") is None and not selection_resolved:
             if is_compound(request["question"]):
                 return EvidencePassthroughGenerator()._clarification_result(request)
             clarification = ambiguous_reference_clarification(request["question"])
@@ -444,6 +460,7 @@ class CompoundAwareGenerator:
             if clarification is not None:
                 result = EvidencePassthroughGenerator()._clarification_result(request)
                 result["draft_message"] = clarification["question"]
+                result["summary"] = clarification["question"]
                 result["clarification"] = clarification
                 result["generation_metadata"]["prompt_version"] = "deterministic-clarification-v1"
                 return result
@@ -529,6 +546,14 @@ class HybridWithSimilarity:
             item["score_type"] = "similarity" if score is not None else "unknown"
         return fused
 
+    def fetch_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        return self.dense.fetch_by_ids(chunk_ids)
+
+    def search_documents(
+        self, question: str, *, document_ids: list[str], top_k: int = 5
+    ) -> list[dict[str, Any]]:
+        return self.dense.search_documents(question, document_ids=document_ids, top_k=top_k)
+
 
 def build_retriever():
     """BM25 인덱스가 있으면 하이브리드, 없으면 Pinecone 단독으로 검색한다.
@@ -539,15 +564,16 @@ def build_retriever():
     어느 쪽으로 검색했는지는 파이프라인 탭에 그대로 표시한다.
     """
     from rag_indexing.pinecone_store import PineconeRetriever
+    from rag_indexing.person_retriever import PersonDocumentStore, PersonTitleRetriever
 
     dense = PineconeRetriever()
     path = bm25_index_path()
     if not path.is_file():
-        return dense
+        return PersonTitleRetriever(dense)
 
     from rag_indexing.bm25_store import BM25Retriever
 
-    return HybridWithSimilarity(dense, BM25Retriever(path))
+    return PersonTitleRetriever(HybridWithSimilarity(dense, BM25Retriever(path)), PersonDocumentStore(path))
 
 
 def build_service():

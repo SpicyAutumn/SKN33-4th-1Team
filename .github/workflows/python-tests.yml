@@ -28,10 +28,21 @@ jobs:
       - name: Run unit tests
         run: python -m pytest -q
 
-      - name: Run backend media catalog tests
+      - name: Install backend unit test dependencies
+        run: python -m pip install -r backend/requirements-test.txt
+
+      - name: Run backend API unit tests
         env:
           PYTHONPATH: backend
+          DJANGO_SETTINGS_MODULE: config.test_settings
         run: python -m unittest discover -s backend/api/tests -p "test_*.py"
+
+      - name: Run search link API integration tests
+        run: python backend/manage.py test api.link_tests --settings=config.search_links_test_settings
+
+
+      - name: Run database schema API tests (isolated SQLite)
+        run: python backend/manage.py test api.schema_tests --settings=config.db_cleaning_test_settings --noinput
 
       - name: Run semantic verifier experiment tests (offline)
         run: python -X utf8 -B -m unittest discover -s experiments/semantic_verifier -p "test_*.py"

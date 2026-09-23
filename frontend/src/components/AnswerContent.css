@@ -1,0 +1,19 @@
+.answer-content { display: grid; gap: 24px; min-width: 0; margin-bottom: 26px; }
+.answer-content-section { min-width: 0; }
+.answer-content-section h3 { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: #285b48; }
+/* Preserve source newlines and selection offsets; adjust presentation only. */
+.answer-content-section p { margin: 0; color: #29463d; line-height: 2; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.answer-content-summary p, .answer-content-correction p { line-height: 1.85; }
+.answer-content-correction { padding: 18px 20px; border: 1px solid #b9d9cf; border-left: 4px solid #28725b; border-radius: 10px; background: #eef8f5; }
+.answer-content-summary { padding: 18px 20px; border: 1px solid #e6e2d8; border-radius: 10px; background: #f8f7f0; }
+.answer-content-summary h3 { color: #846021; }
+.answer-content-empty { color: #647d74; line-height: 1.7; }
+/* Block spans add visual spacing without adding characters to the answer. */
+.answer-display-paragraph { display: block; }
+.answer-display-paragraph + .answer-display-paragraph { margin-top: 1em; }
+@media (max-width: 760px) {
+  .answer-content { gap: 20px; margin-bottom: 20px; }
+  .answer-content-section p { line-height: 1.9; }
+  .answer-content-summary p, .answer-content-correction p { line-height: 1.8; }
+  .answer-content-correction, .answer-content-summary { padding: 15px; }
+}

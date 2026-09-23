@@ -1,0 +1,10 @@
+.ai-answer-header { justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.ai-answer-header > div { flex: 1; min-width: 0; flex-wrap: wrap; }
+.search-share { display: contents; }
+.search-share-button { flex: 0 0 auto; margin-left: auto; white-space: nowrap; }
+.search-share-toast { position: fixed; z-index: 1000; left: 50%; bottom: calc(28px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100vw - 40px); box-sizing: border-box; margin: 0; padding: 12px 20px; border-radius: 10px; background: #244f42; color: #fff; font-size: 14px; line-height: 1.5; text-align: center; box-shadow: 0 4px 18px #0002; pointer-events: none; }
+.search-share-toast:empty { padding: 0; box-shadow: none; }
+@media (max-width: 480px) {
+  .ai-answer-header .search-share-button { padding: 8px 10px; font-size: 12px; }
+  .ai-answer-header > div { gap: 6px; }
+}
