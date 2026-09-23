@@ -4,17 +4,49 @@
 
 ```mermaid
 flowchart TB
-    U["사용자 브라우저"] --> WEB["React / Nginx"]
-    WEB --> API["Django / Gunicorn"]
-    API --> DB[("MySQL: 8개 서비스 테이블")]
+    U["사용자 브라우저"] -. "도메인 조회" .-> DNS["DNS: skn33heritage.site → EC2 공인 IP"]
+    U -->|"HTTPS · 443"| WEB
+    U -->|"HTTP · 80"| REDIRECT
+    subgraph EC2["AWS EC2 · 운영 서버"]
+    subgraph COMPOSE["Docker Compose"]
+    REDIRECT["Nginx: HTTPS로 301 전환"]
+    WEB["Nginx: TLS 종료 · React 정적 파일 제공"]
+    WEB -->|"/api/ → backend:8000"| API["Django / Gunicorn"]
     API --> BRIDGE["app/rag_client.py · app/retrieval.py"]
     BRIDGE --> CORE["src: 검색·생성·근거 처리"]
-    CORE --> VECTOR[("Pinecone 의미 검색")]
-    CORE --> BM25[("BM25 로컬 인덱스")]
-    CORE --> LLM["Ollama 생성 서버"]
-    MEDIA["사진 자료 JSONL"] --> API
     API --> REC["연관 자료 목록 탐색"]
+    end
+    CERT["Let's Encrypt 인증서 · 서버 보관"] -. "읽기 전용 마운트" .-> WEB
+    CORE --> BM25[("BM25 로컬 인덱스 · 읽기 전용 마운트")]
+    MEDIA["사진 자료 JSONL · 읽기 전용 마운트"] --> API
+    end
+    API --> DB[("외부 MySQL: 8개 서비스 테이블")]
+    CORE --> VECTOR[("Pinecone 의미 검색")]
+    CORE --> LLM["별도 Ollama 생성 서버"]
 ```
+
+### 도메인·HTTPS 적용과 접속 흐름
+
+1. `skn33heritage.site`의 DNS가 운영 EC2 공인 IP를 가리키도록 연결한다. DNS는 주소 조회에 사용되며 실제 웹 요청은 브라우저에서 EC2로 전달된다.
+2. EC2에 80·443 포트로 접근할 수 있도록 보안 그룹을 설정하고, 운영용 `docker-compose.aws.yml`로 Nginx의 80·443 포트를 노출한다.
+3. 서버에서 도메인용 Let's Encrypt 인증서를 발급하고 `/etc/letsencrypt`에 보관한다. Nginx는 인증서를 읽기 전용으로 마운트하며, ACME 검증 요청은 `/.well-known/acme-challenge/` 경로로 처리한다.
+4. 일반 HTTP 요청은 HTTPS로 전환하고, HTTPS 요청은 Nginx에서 TLS를 종료한다. 화면은 React 정적 파일로 제공하며 `/api/` 요청은 Docker 내부의 `backend:8000`으로 전달한다.
+5. Django는 허용 도메인, 보안 쿠키, 신뢰 프록시 설정을 적용한다. 인증서 갱신은 서버의 예약 작업과 갱신 스크립트로 관리한다.
+
+설정 근거: [운영 Compose](../../docker-compose.aws.yml), [Nginx HTTPS 설정](../../deploy/nginx-https.conf), [HTTPS 유지·갱신 절차](../MAIN_HTTPS.md). DNS 제공 업체는 구성도에서 특정하지 않는다.
+
+### AWS 운영 자동 배포 흐름
+
+```mermaid
+flowchart LR
+    MAIN["main 커밋 · Python tests 성공"] --> ACTIONS["GitHub Actions: Deploy main to EC2"]
+    ACTIONS --> OIDC["OIDC: AWS IAM 역할 인증"]
+    OIDC --> SSM["AWS Systems Manager Run Command"]
+    SSM --> DEPLOY["운영 EC2: Docker Compose 빌드·교체"]
+    DEPLOY --> CHECK["HTTPS 화면·API 상태 확인"]
+```
+
+배포 워크플로는 최신 `main`과 해당 커밋의 테스트 성공을 확인한다. 수동 재실행에도 같은 확인을 적용하며, EC2의 기존 `.env`·데이터·인증서를 사용한다. 상세 절차는 [운영 자동 배포](../MAIN_AUTO_DEPLOY.md)를 따른다. 이 흐름은 운영 서버 기준이며, 공용 테스트 환경은 별도 EC2와 DB를 사용한다.
 
 ## 2. 구성요소의 역할
 

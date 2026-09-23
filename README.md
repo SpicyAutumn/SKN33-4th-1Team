@@ -60,16 +60,23 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    U["사용자 브라우저"] --> W["React 화면 / Nginx"]
-    W --> A["Django API"]
-    A --> DB[("MySQL: 8개 서비스 테이블")]
+    U["사용자 브라우저"] -.-> DNS["DNS: skn33heritage.site → EC2 공인 IP"]
+    U -->|"HTTPS · 443"| W
+    subgraph EC2["AWS EC2 · Docker Compose"]
+    W["Nginx: TLS 종료 · React 화면 제공"] -->|"/api/ · 내부 8000"| A["Django API"]
     A --> R["기존 검색·답변 코드"]
-    R --> V[("Pinecone: 의미 검색")]
     R --> K[("BM25: 단어 검색")]
-    R --> L["Ollama: 답변 생성"]
     M["사진·출처 자료"] --> A
     A --> N["제목·주제어 기반 연관 탐색"]
+    end
+    A --> DB[("MySQL: 8개 서비스 테이블")]
+    R --> V[("Pinecone: 의미 검색")]
+    R --> L["Ollama: 답변 생성"]
 ```
+
+브라우저는 `skn33heritage.site`의 DNS 조회로 EC2 공인 IP를 찾고 HTTPS로 접속한다. EC2의 Nginx가 Let's Encrypt 인증서로 TLS 연결을 처리하고 React 화면을 제공하며, `/api/` 요청은 Docker 내부의 Django로 전달한다. HTTP(80) 접속은 HTTPS(443)로 전환한다.
+
+운영 배포는 `main 테스트 성공 → GitHub Actions → AWS OIDC 인증 → Systems Manager → EC2 Docker Compose` 순서로 진행한다. 도메인·HTTPS 적용과 배포 흐름은 [전체 시스템 구성도](docs/deliverables/03_architecture.md#1-전체-구성)에 정리했다.
 
 MySQL은 서비스 이용 기록을, 검색 인덱스는 답변 근거를 찾는 자료를 관리한다. 두 저장소의 역할은 다르다.
 
