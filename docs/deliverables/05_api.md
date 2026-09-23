@@ -2,12 +2,12 @@
 
 ## 1. 공통 규칙
 
-API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 경로는 모두 `/api`로 시작하며 끝에 슬래시를 붙이지 않는다. `{id}`와 `{token}`은 UUID 형식의 식별자이다.
+API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 경로는 모두 `/api`로 시작하며 끝에 슬래시를 붙이지 않는다. `{id}`와 `{token}`은 UUID 형식의 식별자이다. 경로별 전체 필드와 예시는 [상세 API 명세](../api/API_SPEC.md)에 정리되어 있다.
 
 - 읽기는 주로 GET, 생성·처리는 POST, 일부 변경은 PATCH, 탈퇴는 DELETE를 사용한다.
 - 회원 인증은 쿠키 기반이다. 변경 요청에는 CSRF 방어 설정을 따른다. CSRF는 다른 사이트가 사용자를 대신해 변경 요청을 보내는 것을 막기 위한 확인이다.
 - 개인 결과 접근과 공개 공유 링크 접근은 별개이다.
-- 아래 표는 URL·메서드·주요 입력·권한을 다룬다. 경로별 전체 응답 필드와 자료형, 실제 요청·응답 예시는 추가 검증 대상이다.
+- 아래 표는 URL·메서드·주요 입력·권한을 한눈에 비교하기 위한 요약이다.
 
 ## 2. 상태·인증·회원
 
@@ -17,7 +17,7 @@ API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 �
 | GET | /v1/auth/csrf | CSRF 토큰 준비 | 공개 |
 | POST | /v1/auth/signup | name, email, password | 공개 |
 | POST | /v1/auth/login | email, password | 공개 |
-| POST | /v1/auth/logout | 현재 로그인 종료 | 현재 세션 |
+| POST | /v1/auth/logout | 현재 로그인 종료 | 로그인하지 않아도 호출 가능 |
 | GET | /v1/auth/me | 로그인 사용자 확인 | 회원 |
 | GET | /v1/me | 내 정보 조회 | 회원 |
 | PATCH | /v1/me | name, email; 이메일 변경 시 current_password | 회원 |
@@ -85,7 +85,7 @@ API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 �
 | GET | /v1/me/error-reports/{id} | 본인 제보 상세 | 회원 |
 | GET | /v1/admin/session | 관리자 인증 상태 | 별도 관리자 설정 |
 | POST | /v1/admin/login | 관리자 비밀번호 인증 | 비밀번호 확인 |
-| POST | /v1/admin/logout | 관리자 쿠키 종료 | 관리자 세션 |
+| POST | /v1/admin/logout | 관리자 쿠키 종료 | 별도 인증 없이 호출 가능 |
 | GET | /v1/admin/dashboard | 처리 현황 | 관리자 인증 |
 | GET | /v1/admin/users | 유효 세션 기반 이용자 목록 | 관리자 인증 |
 | GET | /v1/admin/searches | 회원 검색 기록 목록 | 관리자 인증 |
@@ -93,7 +93,29 @@ API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 �
 | GET | /v1/admin/error-reports | 제보 목록 | 관리자 인증 |
 | GET / PATCH | /v1/admin/error-reports/{id} | 제보 상세·처리 변경 | 관리자 인증 |
 
-관리자는 별도 서명 쿠키를 사용하며 유효기간은 8시간이다. 회원의 `role=admin` 여부만으로 접근을 판정하지 않는다. 이 방식의 적정성과 최종 운영 정책은 별도 검토 대상이다.
+관리자는 별도 서명 쿠키를 사용하며 유효기간은 8시간이다. 회원의 `role=admin` 여부만으로 접근을 판정하지 않는다.
+
+### 오류 제보의 입력과 저장
+
+| 구분 | 현재 동작 |
+|---|---|
+| 기본 웹 화면 | 오류 유형 한 가지와 10~2,000자의 설명을 전송한다. 선택한 답변 문구는 설명에 덧붙인다 |
+| 서버 요청 | `category` 한 가지 또는 `categories` 배열을 받는다. `selected_quotes`에는 답변에서 선택한 문구를 최대 5개까지 전달할 수 있다 |
+| 서버 저장 | `error_reports`에 제보 본문·상태를 저장하고, `error_report_types`에 유형별 한 행, `error_report_quotes`에 선택 문구별 한 행을 저장한다 |
+| 서버 응답 | 전체 유형을 `categories` 배열로 제공한다. 이전 화면과의 호환을 위해 첫 유형을 `category`에도 담는다 |
+
+유형 코드는 `incorrect_fact`(사실이 틀림), `citation_mismatch`(출처가 맞지 않음), `incomplete_answer`(설명이 부족함), `inappropriate_content`(부적절한 내용), `other`(기타)다. **기타 유형을 선택했거나 선택 문구가 없으면 설명을 10~2,000자로 작성해야 한다.** 선택 문구가 있고 기타 유형이 아니라면 설명을 비워 둘 수 있다. 현재 서버는 제보 이미지 첨부를 받지 않는다.
+
+```json
+{
+  "search_record_id": "00000000-0000-4000-8000-000000000000",
+  "categories": ["incorrect_fact", "citation_mismatch"],
+  "content": "답변의 연도와 인용 출처를 확인해 주세요.",
+  "selected_quotes": [{"text": "답변에 실제 포함된 문구"}]
+}
+```
+
+위 JSON은 요청 구조 예시다. 실제 등록에는 본인 검색 기록 ID와 해당 답변에 존재하는 문구를 사용한다. 선택 문구의 위치(`start_offset`, `end_offset`)는 둘 다 보내거나 둘 다 생략해야 한다.
 
 ## 5. 오류 응답
 
@@ -101,6 +123,7 @@ API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 �
 
 | 상태 코드 | 확인된 대표 경우 |
 |---|---|
+| 400 | JSON 형식이나 요청 구조가 잘못됨 |
 | 401 | 회원 또는 관리자 인증 필요 |
 | 404 | 개인 결과 없음·권한 없음, 공유 결과 없음 |
 | 409 | 이메일 중복 |
@@ -108,8 +131,6 @@ API는 화면과 서버가 요청·응답을 주고받는 규칙이다. 아래 �
 | 502 | RAG 연결·처리 실패 |
 | 503 | 관리자 비밀번호 미설정, 연관 탐색 서비스 사용 불가 |
 
-경로별 전체 요청·응답 필드, 인증·CSRF 예시와 실제 테스트 응답은 추가 확인이 필요하다.
+사용자 검색 기록의 `next_cursor`는 현재 `null`이며 관리자 이용자·검색 목록만 `limit`와 `offset`을 사용한다. 페이지를 계속 넘길 수 있다고 가정하지 않는다.
 
-DB 구조 변경으로 필드가 바뀌면 화면과 시험 항목도 함께 수정한다.
-
-근거: [라우팅](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/urls.py), [요청 처리](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/views.py), [공유](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/search_links.py), [추천](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/network_views.py).
+구현 자료: [상세 명세](../api/API_SPEC.md), [라우팅](../../backend/api/urls.py), [요청 처리](../../backend/api/views.py), [공유](../../backend/api/search_links.py), [연관 탐색](../../backend/api/network_views.py).

@@ -1,68 +1,57 @@
-# 데이터 관계도(ERD)
+# 서비스 데이터베이스 관계도(ERD)
 
-아래 관계도는 Django의 업무 모델 6개를 대상으로 한다. 프레임워크 내부 테이블 등 실제 DB의 전체 테이블 목록과는 구분한다.
+서비스 데이터베이스는 회원, 질문·답변, 오류 제보 정보를 **8개 업무 테이블**에 저장한다. Django가 적용한 데이터베이스 변경 이력은 별도 `django_migrations` 테이블에 기록된다.
 
-DB 구조 정리가 진행 중이므로, 최종 ERD와 마이그레이션 적용 결과의 대조가 필요하다.
+![서비스 데이터베이스 ERD: 8개 테이블과 실제 외래키 관계](../assets/service-database-erd.png)
 
-## 1. 데이터 관계
+그림의 **1 → 0..N**은 왼쪽의 기록 하나에 오른쪽 기록이 여러 개 연결될 수 있다는 뜻이다. 점선은 연결 대상이 없을 수도 있음을 나타낸다. 예를 들어 비회원의 검색 결과에는 회원 번호가 없다.
 
-ERD는 “어떤 정보를 저장하고, 서로 어떻게 연결하는지”를 보여주는 그림이다.
+## 테이블별 역할
+
+| 테이블 | 저장 내용 | 다른 테이블과의 연결 |
+|---|---|---|
+| `users` | 회원 이름, 이메일, 비밀번호 해시, 이용 상태 | 검색 기록·로그인 세션·오류 제보·회원 검색 결과의 기준 |
+| `auth_sessions` | 로그인 세션의 토큰 해시와 유효기간 | `user_id`로 회원에 연결 |
+| `search_records` | 회원 질문, 설명 수준, 답변 유형, 답변 본문 | `owner_id`로 회원에 연결 |
+| `search_citations` | 답변에 사용한 문서 제목·원문 주소·근거 문장 | `search_record_id`로 검색 기록에 연결 |
+| `search_results` | 답변 화면을 다시 보여 줄 저장본과 공유 토큰 | 회원이면 `owner_id`로 연결; 비회원이면 회원 연결 없음 |
+| `error_reports` | 회원이 접수한 답변 오류와 처리 상태·담당자 답변 | 신고자 `owner_id`, 신고 대상 `search_record_id`, 선택적인 처리자 `handled_by_id` |
+| `error_report_types` | 제보 한 건에 선택한 오류 유형들 | `error_report_id`로 오류 제보에 연결 |
+| `error_report_quotes` | 제보자가 답변에서 선택한 문구와 해당 위치 | `error_report_id`로 오류 제보에 연결 |
+
+**해시**는 원래 값을 그대로 저장하지 않기 위해 계산한 값이다. 로그인 쿠키의 실제 토큰 대신 `token_hash`를 저장한다. **답변 저장본**(`payload`)은 당시의 답변·요약·근거·사진 정보를 담는다. 결과를 다시 열 때 언어모델에 같은 질문을 다시 보내지 않는다.
+
+## 핵심 관계
 
 ```mermaid
-erDiagram
-    USERS ||--o{ AUTH_SESSIONS : "로그인 세션"
-    USERS ||--o{ SEARCH_RECORDS : "회원 검색 기록"
-    SEARCH_RECORDS ||--o{ SEARCH_CITATIONS : "답변 근거"
-    USERS ||--o{ ERROR_REPORTS : "작성"
-    SEARCH_RECORDS ||--o{ ERROR_REPORTS : "제보 대상"
-    USERS o|--o{ ERROR_REPORTS : "처리 담당"
-    USERS o|--o{ SEARCH_RESULTS : "소유 또는 비회원"
+flowchart LR
+    U["회원 users"] -->|1:N| S["로그인 세션 auth_sessions"]
+    U -->|1:N| R["회원 검색 기록 search_records"]
+    R -->|1:N| C["답변 근거 search_citations"]
+    U -.->|회원 결과에만 1:N| P["답변 저장본 search_results"]
+    U -->|신고자 1:N| E["오류 제보 error_reports"]
+    R -->|신고 대상 1:N| E
+    U -.->|처리자 0..1:N| E
+    E -->|1:N| T["오류 유형 error_report_types"]
+    E -->|1:N| Q["선택 문구 error_report_quotes"]
 ```
 
-## 2. 모델별 저장 목적
+`search_records`와 `search_results`는 회원의 새 검색에서 같은 ID를 사용할 수 있으나 **서로를 가리키는 외래키(FK)는 없다**. 두 테이블을 DB가 직접 연결한다고 표현하지 않는다. 비회원 검색은 `search_results`에만 저장되고, 검색했던 브라우저의 쿠키로 개인 결과를 연다.
 
-| 테이블 | 주요 필드 | 목적 |
-|---|---|---|
-| users | id, email, password_hash, name, role, is_active | 회원 정보 |
-| auth_sessions | user_id, token_hash, expires_at, revoked_at | 로그인 상태와 유효기간 |
-| search_records | owner_id, question, audience_level, response_type, message | 회원 질문·답변 기록 |
-| search_citations | search_record_id, chunk_id, title, source_url, content | 기록에 연결된 근거 |
-| error_reports | owner_id, search_record_id, category, status, staff_reply, handled_by_id | 제보와 처리 내용 |
-| search_results | owner_id(선택), guest_token_hash, payload, share_token | 재열기·공유용 답변 스냅샷 |
+## 제약과 데이터 보존
 
-스냅샷은 **답변을 다시 생성하지 않고 당시 화면 내용을 보여주기 위한 저장본**이다. `payload`에는 질문·답변·요약·출처·사진 등 화면 데이터가 들어간다.
-
-## 3. 중요한 연결·제약
-
-| 규칙 | 코드상 의미 |
+| 규칙 | 구체적인 동작 |
 |---|---|
-| 이메일·세션 토큰 해시 중복 금지 | 동일 식별 정보 중복 저장 방지 |
-| 검색 기록의 rag_request_id 고유 | 생성 요청 식별자 중복 제한 |
-| 기록별 출처 순번·chunk_id 중복 제한 | 같은 기록에서 출처 중복 방지 |
-| search_results의 share_token 고유·빈 값 허용 | 공유를 선택하기 전에는 공개 토큰 없음 |
-| search_records와 search_results | 회원 신규 검색에서 같은 ID 사용; **직접 FK는 없음** |
-| search_results.owner_id 선택값 | 비회원 결과는 소유 회원 없이 쿠키 해시로 접근 |
+| 회원 이메일 | 같은 이메일을 두 계정에 사용할 수 없다 |
+| 답변 근거 | 한 검색 기록에서 같은 순번이나 같은 `chunk_id`를 중복 저장할 수 없다 |
+| 제보 유형 | 한 제보에서 같은 유형 코드를 중복 저장할 수 없다. 여러 **서로 다른** 유형은 선택할 수 있다 |
+| 선택 문구 | 한 제보에서 같은 순번을 중복 저장할 수 없다. 선택 위치는 이전 제보와의 호환을 위해 비어 있을 수 있다 |
+| 공유 토큰 | 사용자가 공유하기 전에는 값이 없고, 발급된 값은 다른 결과와 중복될 수 없다 |
+| 검색 결과 삭제 | 회원 탈퇴 시 회원 소유 결과가 함께 삭제된다. 비회원 결과는 회원 탈퇴 대상에 포함되지 않는다 |
+| 제보·근거 삭제 | 제보 삭제 시 유형·선택 문구가, 검색 기록 삭제 시 답변 근거가 함께 삭제된다 |
 
-FK(외래키)는 다른 테이블의 행을 가리키는 연결이다. ID가 같다는 것과 DB가 관계를 강제한다는 것은 다르므로 존재하지 않는 FK를 도식에 추가하지 않았다.
+`error_reports`에는 더 이상 단일 오류 유형을 저장하는 `category` 열이 없다. 여러 오류 유형은 `error_report_types`의 개별 행으로 저장한다. API 응답의 `category`는 이전 화면과의 호환을 위한 값으로, 저장 열을 뜻하지 않는다.
 
-## 4. 삭제 동작 확인 지점
+관리자 화면은 별도 관리자 비밀번호와 서명된 쿠키로 접근을 확인한다. `users.role` 값만으로 현재 관리자 API 접근을 허용하지 않는다.
 
-- 회원 검색 기록·제보의 일부 연결은 참조가 남으면 삭제를 제한하는 `RESTRICT` 방식이다.
-- 출처는 해당 검색 기록 삭제 시 함께 삭제하는 `CASCADE` 방식이다.
-- 제보 처리 담당 회원이 삭제되면 해당 담당 값은 `NULL`로 변경된다.
-- 회원 탈퇴 API는 관련 제보·검색 기록·세션을 명시적으로 정리한 후 회원을 삭제한다.
-- 관리자 화면 인증은 별도 서명 쿠키 방식이므로 `users.role`이 현재 관리자 API 권한을 결정한다고 표기하지 않는다.
-
-실제 삭제·권한·개인정보 보존 정책은 최종 DB 정리와 함께 재검증한다.
-
-## 5. 데이터 구조 검증 항목
-
-- [ ] 테이블·컬럼 이름과 자료형·NULL 허용·기본값 대조
-- [ ] PK·FK·고유 제약·인덱스 대조
-- [ ] search_results와 검색 기록의 연결 방식 확정
-- [ ] migration 0006_search_result_links 이후 변경의 의존성 확인
-- [ ] 기존 데이터를 보존한 테스트 DB에서 migration 검증
-- [ ] 탈퇴·공유·제보 데이터 삭제 규칙 확인
-- [ ] 실제 DB의 프레임워크·과거 테이블을 업무 모델과 구분
-
-근거: [업무 모델](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/models.py), [마이그레이션](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/migrations), [공유 저장](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/search_links.py), [탈퇴 처리](https://github.com/SpicyAutumn/SKN33-4th-1Team/blob/7811a717e39a853a01c2bb860b6296b38ba48ea0/backend/api/views.py).
+자료: [업무 모델](../../backend/api/models.py), [DB 정리 및 검증](../DB_CLEANING_TEST_ROLLOUT.md), [API 명세](../api/API_SPEC.md).
