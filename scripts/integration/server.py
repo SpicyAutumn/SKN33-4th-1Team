@@ -37,6 +37,22 @@ API_KEYS = {
 }
 
 
+def select_deployment() -> None:
+    """Use the host's explicit clone-lab selection, retaining its existing DB."""
+    global ROOT, PROJECT
+    config_path = ROOT / "deployment.json"
+    if not config_path.exists():
+        return
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    if config != {"deployment": "clone-lab"}:
+        raise RuntimeError("Unsupported test deployment selection")
+    target = ROOT / "clone-lab"
+    if target.is_symlink() or not (target / ".test-server").is_file():
+        raise RuntimeError("Selected test deployment is missing its dedicated marker")
+    ROOT = target
+    PROJECT = "heritage-db-clone"
+
+
 def command(*args: str, cwd: Path | None = None, capture: bool = False) -> str:
     completed = subprocess.run(
         args, cwd=cwd, check=True, text=True, timeout=1800,
@@ -144,6 +160,8 @@ def compose_config(release: Path, public_ip: str) -> dict[str, object]:
                     f"{ROOT}/data/aks_bm25_v1.sqlite3:/data/aks_bm25_v1.sqlite3:ro",
                     f"{ROOT}/data/aks_article_medias.jsonl:/data/aks_article_medias.jsonl:ro",
                     f"{release}/bootstrap_db.py:/integration_bootstrap.py:ro",
+                    f"{release}/clone_database.py:/integration_clone.py:ro",
+                    f"{ROOT}/seed:/integration_seed:ro",
                 ],
                 "depends_on": {"db": {"condition": "service_healthy"}},
                 "healthcheck": {"test": ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"],
@@ -156,18 +174,35 @@ def compose_config(release: Path, public_ip: str) -> dict[str, object]:
                 "depends_on": {"backend": {"condition": "service_healthy"}},
             },
         },
-        "volumes": {"db": {}},
+        "volumes": {"db": {"name": f"{PROJECT}_db"}},
         "networks": {"default": {}, "database": {"internal": True}},
     }
 
 
 def configure_release(release: Path, public_ip: str) -> None:
     api = parse_api_environment(ROOT / "test-api.env")
-    password = secrets.token_hex(24)
-    private_file(release / "mysql.env", "\n".join((
-        "MYSQL_DATABASE=integration", "MYSQL_USER=integration", f"MYSQL_PASSWORD={password}",
-        f"MYSQL_ROOT_PASSWORD={secrets.token_hex(32)}", "",
-    )))
+    # Credentials must survive releases just like the persistent volume.
+    stable = ROOT / "mysql.env"
+    if not stable.exists():
+        previous = active_release()
+        if previous:
+            content = (previous / "mysql.env").read_text(encoding="utf-8")
+        else:
+            # Never guess credentials for an orphaned, existing data volume.
+            found = command("sudo", "-n", "docker", "volume", "ls", "--format", "{{.Name}}", capture=True)
+            if f"{PROJECT}_db" in found.splitlines():
+                raise RuntimeError("Existing test volume has no credentials; recover ROOT/mysql.env first")
+            content = "\n".join(("MYSQL_DATABASE=integration", "MYSQL_USER=integration",
+                                  f"MYSQL_PASSWORD={secrets.token_hex(24)}",
+                                  f"MYSQL_ROOT_PASSWORD={secrets.token_hex(32)}", ""))
+        private_file(stable, content)
+    content = stable.read_text(encoding="utf-8")
+    values = dict(line.split("=", 1) for line in content.splitlines() if "=" in line)
+    if (values.get("MYSQL_DATABASE") != "integration" or values.get("MYSQL_USER") != "integration"
+            or not values.get("MYSQL_PASSWORD") or not values.get("MYSQL_ROOT_PASSWORD")):
+        raise RuntimeError("Invalid persistent test database configuration")
+    password = values["MYSQL_PASSWORD"]
+    private_file(release / "mysql.env", content)
     api.update({
         "MYSQL_HOST": "db", "MYSQL_PORT": "3306", "MYSQL_DATABASE": "integration",
         "MYSQL_USER": "integration", "MYSQL_PASSWORD": password, "INTEGRATION_DATABASE": "1",
@@ -180,19 +215,41 @@ def configure_release(release: Path, public_ip: str) -> None:
     private_file(release / "compose.json", json.dumps(compose_config(release, public_ip)))
 
 
+def backup_database(release: Path) -> None:
+    """Snapshot the stopped test application's DB before any migration runs."""
+    backup = release / "before-migrate.sql"
+    with backup.open("xb") as output:
+        backup.chmod(0o600)
+        try:
+            subprocess.run([
+                "sudo", "-n", "docker", "compose", "-p", PROJECT,
+                "-f", str(release / "compose.json"), "exec", "-T", "db", "sh", "-c",
+                'export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; exec mysqldump -uroot '
+                '--single-transaction --quick --skip-lock-tables --no-tablespaces '
+                '--set-gtid-purged=OFF --hex-blob integration',
+            ], stdout=output, check=True, timeout=600)
+        except Exception:
+            backup.unlink(missing_ok=True)
+            raise
+
+
 def start_release(release: Path, public_ip: str) -> None:
     compose(release, "up", "-d", "--wait", "--wait-timeout", "240", "db")
-    # mysqladmin can report healthy just before the application connection is
-    # accepted. Retry only this disposable-DB bootstrap rather than publishing a
-    # flaky failed deployment (or failing a rollback) on that small window.
+    # Retry connection readiness only. Never blindly retry partially applied DDL.
     for attempt in range(12):
         try:
-            compose(release, "run", "--rm", "--no-deps", "backend", "python", "/integration_bootstrap.py")
+            compose(release, "exec", "-T", "db", "sh", "-c",
+                    'export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; mysql -uroot integration -e "SELECT 1"')
             break
         except subprocess.CalledProcessError:
             if attempt == 11:
                 raise
             time.sleep(5)
+    backup_database(release)
+    private_file(ROOT / "database-review-required.json", json.dumps({
+        "release": release.name, "backup": str(release / "before-migrate.sql"),
+    }))
+    compose(release, "run", "--rm", "--no-deps", "backend", "python", "/integration_bootstrap.py")
     compose(release, "up", "-d", "--no-build", "--wait", "--wait-timeout", "180")
     for path in ("/", "/api/health"):
         request = urllib.request.Request(f"http://127.0.0.1{path}", headers={"Host": public_ip})
@@ -215,8 +272,8 @@ def active_release() -> Path | None:
 def stop_active() -> None:
     release = active_release()
     if release:
-        compose(release, "down", "--volumes", "--remove-orphans")
-    (ROOT / "active.json").unlink(missing_ok=True)
+        compose(release, "down", "--remove-orphans")
+    # Keep active.json and mysql.env so later deployments can adopt this DB.
 
 
 def main() -> None:
@@ -241,42 +298,44 @@ def main() -> None:
 
     with (ROOT / ".integration.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
+        if (ROOT / "database-review-required.json").exists():
+            raise RuntimeError("Prior deployment needs database review; do not start old code against changed schema")
         previous = active_release()
-        if not prs:
-            stop_active()
-            print("INTEGRATION_RESULT=" + json.dumps({"state": "stopped", "url": f"http://{public_ip}"}))
-            return
+        # With no preview PRs, keep the latest main available against the same DB.
         release = releases / secrets.token_hex(8)
         release.mkdir(mode=0o700)
         switched = False
         try:
             create_source(release, main_sha, prs)
             shutil.copy2(Path(__file__).with_name("bootstrap_db.py"), release / "bootstrap_db.py")
+            shutil.copy2(Path(__file__).with_name("clone_database.py"), release / "clone_database.py")
+            (ROOT / "seed").mkdir(mode=0o700, exist_ok=True)
             configure_release(release, public_ip)
             compose(release, "build")
-            # Builds have succeeded; now replace the disposable test stack and database.
+            # Builds have succeeded; replace application containers, keeping data.
             if previous:
-                compose(previous, "down", "--volumes", "--remove-orphans")
+                compose(previous, "down", "--remove-orphans")
             switched = True
             start_release(release, public_ip)
         except Exception:
             if switched:
                 try:
-                    compose(release, "down", "--volumes", "--remove-orphans")
+                    compose(release, "down", "--remove-orphans")
                 except Exception:
                     pass
-                if previous:
-                    # Restore the previous tested source and an empty test database.
-                    start_release(previous, public_ip)
+                # Schema changes may be irreversible. Preserve data and backup,
+                # leave the app stopped, and require an explicit recovery.
+                if not (ROOT / "database-review-required.json").exists():
+                    private_file(ROOT / "database-review-required.json", json.dumps({"release": release.name}))
             raise
         private_file(ROOT / "active.json", json.dumps({"release": release.name, "main_sha": main_sha,
                                                          "prs": [{"number": n, "sha": s} for n, s in prs]}) + "\n")
-        for old in releases.iterdir():
-            if old != release:
-                guarded_remove(old)
+        (ROOT / "database-review-required.json").unlink(missing_ok=True)
+        # Keep previous source and database backups for manual recovery.
         print("INTEGRATION_RESULT=" + json.dumps({"state": "ready", "url": f"http://{public_ip}",
                                                      "main_sha": main_sha, "prs": [n for n, _ in prs]}))
 
 
 if __name__ == "__main__":
+    select_deployment()
     main()

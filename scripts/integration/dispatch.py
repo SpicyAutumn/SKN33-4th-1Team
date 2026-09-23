@@ -63,13 +63,15 @@ def main() -> None:
     payload = base64.b64encode(json.dumps({"main_sha": main_sha, "prs": prs}).encode()).decode()
     server = base64.b64encode(Path("scripts/integration/server.py").read_bytes()).decode()
     bootstrap = base64.b64encode(Path("scripts/integration/bootstrap_db.py").read_bytes()).decode()
+    clone = base64.b64encode(Path("scripts/integration/clone_database.py").read_bytes()).decode()
     remote = f'''set -eu
 work=$(mktemp -d /tmp/heritage-integration.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 chmod 755 "$work"
 printf '%s' '{server}' | base64 -d > "$work/server.py"
 printf '%s' '{bootstrap}' | base64 -d > "$work/bootstrap_db.py"
-chmod 644 "$work/server.py" "$work/bootstrap_db.py"
+printf '%s' '{clone}' | base64 -d > "$work/clone_database.py"
+chmod 644 "$work/server.py" "$work/bootstrap_db.py" "$work/clone_database.py"
 sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
 '''
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as parameters:
@@ -102,14 +104,14 @@ sudo -u ubuntu -H python3 "$work/server.py" '{payload}'
         # returning stdout. A successful controller command is still reliable:
         # it validates the requested immutable revisions before publishing.
         if record is None:
-            record = {"state": "ready" if prs else "stopped", "url": test_url, "main_sha": main_sha,
+            record = {"state": "ready", "url": test_url, "main_sha": main_sha,
                       "prs": [pr["number"] for pr in prs]}
         url = record.get("url", test_url)
         if record["state"] == "ready":
-            included = ", ".join(f"#{number}" for number in record["prs"])
+            included = ", ".join(f"#{number}" for number in record["prs"]) or "없음 (최신 main)"
             message = (f"공용 통합 테스트 반영 완료: {url}\n\n"
                        f"포함 PR: {included}\n기준 main: `{record['main_sha'][:12]}`\n"
-                       "이 사이트의 DB는 테스트 전용이며, 다음 통합 배포 때 초기화됩니다.")
+                       "이 사이트의 DB는 테스트 전용이며, 다음 통합 배포에도 유지됩니다.")
         else:
             message = "`preview` 라벨이 붙은 PR이 없어 공용 통합 테스트 사이트를 중지했습니다."
         Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text(message + "\n", encoding="utf-8")
