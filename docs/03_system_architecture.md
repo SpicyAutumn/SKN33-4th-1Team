@@ -1,10 +1,10 @@
 # 시스템 아키텍처
 
-> 문서 기준일: 2026-09-03
+> 문서 기준일: 2026-09-03 (3차 프로젝트), 2026-09-23 웹 구성 현행화
 >
-> 적용 대상: SKN 33기 3차 프로젝트 `개인 맞춤형 AI 문화유산 가이드`
+> 적용 대상: SKN 33기 3·4차 프로젝트 `개인 맞춤형 AI 문화유산 가이드`
 >
-> 기준 코드: `main` commit `f38ac05`
+> 기준 코드: 3차 `main` commit `f38ac05`. 4차에서 화면을 Streamlit에서 React 웹과 Django API로 전환했으며, 검색·근거 판단·생성 흐름(5~6장)은 그대로 사용한다.
 
 ## 1. 설계 목표
 
@@ -14,7 +14,7 @@
 - 검색 점수만으로 답변 가능 여부를 단정하지 않고, 실제 근거 내용도 확인한다.
 - LLM이 사용했다고 반환한 청크만 검증하여 출처와 근거 문장으로 표시한다.
 - 검색·근거 판단·생성·화면을 분리해 구성 요소를 교체하거나 오류 위치를 찾기 쉽게 한다.
-- 외부 연결이 준비되지 않은 환경에서는 Mock 화면을 제공하고 실제 응답으로 오해되지 않게 표시한다.
+- 외부 연결이 준비되지 않은 환경에서는 가짜 답변을 만들지 않고 서비스 이용 불가 오류를 반환한다.
 
 ## 2. 전체 시스템 구성
 
@@ -34,8 +34,10 @@ flowchart LR
     end
 
     subgraph Runtime[온라인 질의응답]
-        USER[사용자] --> UI[Streamlit UI]
-        UI --> SERVICE[RagService]
+        USER[사용자] --> UI[React 웹<br/>nginx]
+        UI --> API[Django API<br/>gunicorn]
+        API --> DB[(MySQL<br/>회원·검색 기록·오류 제보)]
+        API --> SERVICE[RagService]
         SERVICE --> GUARD[안전·서비스 범위 검사]
         GUARD --> RETRIEVER[Hybrid Retriever]
         RETRIEVER --> PC
@@ -44,35 +46,35 @@ flowchart LR
         GROUND --> GEN[Ollama 생성기<br/>EXAONE 3.5]
         GEN --> VALIDATE[계약·used_chunk_ids 검증]
         VALIDATE --> CITE[답변·출처·근거 문장 조립]
-        CITE --> UI
+        CITE --> API
+        API --> UI
         UI --> TTS[브라우저 한국어 TTS]
     end
 
-    subgraph Evaluation[평가·관찰]
-        TRACE[답변 과정·파이프라인]
+    subgraph Evaluation[오프라인 평가]
         RAGAS[RAGAS<br/>Faithfulness·Answer Relevancy]
     end
 
-    SERVICE -. 실행 과정 .-> TRACE
-    CITE -. 평가 입력 .-> RAGAS
-    TRACE -. 화면 표시 .-> UI
-    RAGAS -. 평가 결과 .-> UI
+    CITE -. 평가셋 실행 결과 .-> RAGAS
 ```
 
-위 구성에서 `app/heritage_graph.py`는 문화유산 네트워크의 연관 항목을 만드는 모듈이다. 이름에 `graph`가 있지만 LangGraph 실행 흐름은 아니다.
+Django API는 `app/` 폴더의 런타임 모듈(`rag_client.py`, `retrieval.py`, `heritage_graph.py` 등)을 불러와 `RagService`를 호출한다. `app/heritage_graph.py`는 문화유산 네트워크의 연관 항목을 만드는 모듈이다. 이름에 `graph`가 있지만 LangGraph 실행 흐름은 아니다.
 
 ## 3. 배치 위치와 외부 연결
 
 | 위치 | 주요 구성 요소 | 역할 |
 | :--- | :--- | :--- |
-| 사용자 PC | Streamlit, `RagService`, BM25 SQLite | 화면, 요청 흐름 제어, 단어 검색 |
+| 브라우저 | React 웹 | 질문 입력, 답변·출처·문화유산 네트워크·마이페이지·관리자 화면 |
+| EC2 `frontend` 컨테이너 | nginx | React 빌드 파일 제공, `/api/` 요청을 백엔드로 전달, HTTPS 종료 |
+| EC2 `backend` 컨테이너 | Django·gunicorn, `RagService`, BM25 SQLite | API, 로그인 세션, 요청 흐름 제어, 단어 검색 |
+| MySQL | `django_project4` | 회원, 검색 기록·출처, 공유 링크, 오류 제보 저장 |
 | OpenAI API | `text-embedding-3-small` | 질문을 1,536차원 벡터로 변환 |
 | Pinecone | `aks-rag-v1` / `__default__` | 179,028개 v1 청크의 의미 검색 |
 | RunPod | Ollama HTTP Service, EXAONE 3.5 | 검색 근거를 바탕으로 한국어 답변 생성 |
-| OpenAI API·RAGAS | 평가 전용 Judge·Embedding | 답변 충실도와 질문 관련성 평가 |
+| OpenAI API·RAGAS | 평가 전용 Judge·Embedding | 오프라인 평가셋의 답변 충실도와 질문 관련성 평가 |
 | 브라우저 | Web Speech API | 화면 답변을 한국어 음성으로 읽기 |
 
-Pinecone과 OpenAI Embedding은 Dense 검색에 필요하다. BM25 파일이 있으면 Hybrid 검색을 사용하고, 파일이 없으면 서비스가 중단되지 않도록 Dense 단독 검색으로 전환한다. RAGAS 평가는 답변 생성과 분리되어 있어 평가 호출에 실패해도 이미 생성된 답변은 유지한다.
+Pinecone과 OpenAI Embedding은 Dense 검색에 필요하다. BM25 파일이 있으면 Hybrid 검색을 사용하고, 파일이 없으면 서비스가 중단되지 않도록 Dense 단독 검색으로 전환한다. RAGAS 평가는 서비스 요청 경로에 포함하지 않고 평가 스크립트에서 별도로 실행한다.
 
 ## 4. 오프라인 데이터·인덱싱 흐름
 
@@ -171,22 +173,24 @@ BM25 파일이 없으면 2~6번의 Hybrid 결합 대신 Pinecone Dense 상위 3�
 | :--- | :--- | :--- |
 | Retriever | `RetrievedContext[]` | 근거 확인과 생성 문맥으로 사용 |
 | Generator | 응답 유형, `draft_message`, `used_chunk_ids` | 서비스가 형식과 ID를 검증 |
-| `RagService` | `ServiceResponse`, 실행 추적 | Citation과 검색 과정을 UI에 전달 |
-| Streamlit | 답변·출처·근거·평가 화면 | 사용자에게 표시하고 TTS 제공 |
+| `RagService` | `ServiceResponse`, 실행 추적 | Citation을 API 응답으로 전달 |
+| Django API | JSON 응답, 사진 정보, 검색 기록 저장 | 로그인 사용자의 기록 저장과 공유 링크 제공 |
+| React 웹 | 답변·출처·근거·사진 화면 | 사용자에게 표시하고 TTS 제공 |
 
 화면은 `source_url`을 원문 링크로 사용하고 출처 표시명은 `한국민족문화대백과사전`으로 통일한다. 같은 문서에서 여러 청크가 사용된 경우 화면에서는 `document_id`로 묶어 제목을 한 번만 표시하되, 근거 문장은 모두 확인할 수 있다.
 
 ## 8. 화면 구성
 
-| 탭 | 사용자에게 보여 주는 내용 |
+| 화면 | 사용자에게 보여 주는 내용 |
 | :--- | :--- |
-| 질문하기 | 질문 입력, 설명 수준 선택, 답변, 출처와 근거 문장 |
-| 답변 과정 | 현재 질문이 검색·생성·출처 조립을 거친 과정 |
-| 파이프라인 | 실제 검색 방식, 검색 후보와 사용한 청크의 변화 |
-| 평가 결과 | RAGAS Faithfulness·Answer Relevancy와 평가 상태 |
+| 메인·질문 | 질문 입력, 설명 수준 선택, 답변 대기 중 지역 문화유산 소개 |
+| 답변 | 답변, 요약 듣기(TTS), 출처와 근거 문장, 관련 사진, 결과 공유, 오류 제보 |
 | 문화유산 네트워크 | 선택 항목과 시대·분야·지역 등이 연결된 연관 항목 |
+| 마이페이지 | 회원 정보, 검색 기록, 내 오류 제보 |
+| 관리자 | 이용 현황, 회원·검색 기록, 오류 제보 처리 |
+| 약관·개인정보 | 이용약관과 개인정보 처리방침 |
 
-환경 변수가 준비되지 않으면 화면은 Mock 모드로 실행한다. Mock 응답은 화면 확인용이며 실제 검색·생성 결과와 구분해 표시한다.
+RAG 환경 변수가 준비되지 않았거나 외부 호출에 실패하면 API는 가짜 답변 대신 서비스 이용 불가 오류를 반환한다.
 
 ## 9. 오류·보안 처리
 
@@ -231,16 +235,20 @@ LangGraph를 이용한 분기·재검색 구조를 별도로 실험했으나 3�
 ## 12. 실행 경로
 
 ```text
-python run.py
-  → streamlit run app/app.py
+docker compose up -d --build
+  → React 웹 (nginx, frontend/)
+  → POST /api/v1/searches (Django, backend/api/views.py)
+  → backend/api/rag_runtime.py
   → app/retrieval.py
   → app/rag_client.py
   → src/rag_service/service.py
   → Dense/Hybrid Retriever
   → OllamaGenerator
   → ServiceResponse·Citation
-  → Streamlit 화면
+  → 로그인 사용자의 검색 기록 저장(MySQL) → JSON 응답 → React 화면
 ```
+
+컨테이너 실행과 배포 절차는 `docs/DOCKER_RUNBOOK.md`, `docs/MAIN_AUTO_DEPLOY.md`, `docs/MAIN_HTTPS.md`에서 관리한다.
 
 필수 환경 변수와 실행 준비 절차는 프로젝트 `README.md`와 `.env.example`에서 관리한다.
 
@@ -248,8 +256,10 @@ python run.py
 
 | 영역 | 파일 |
 | :--- | :--- |
-| Streamlit 진입점 | `app/app.py` |
-| 화면–서비스 연결 | `app/retrieval.py`, `app/rag_client.py` |
+| React 웹 진입점 | `frontend/src/main.jsx`, `frontend/src/App.jsx` |
+| API 라우팅·화면 요청 처리 | `backend/api/urls.py`, `backend/api/views.py` |
+| API–RAG 연결 | `backend/api/rag_runtime.py`, `app/retrieval.py`, `app/rag_client.py` |
+| 문화유산 네트워크 | `backend/api/network_views.py`, `app/heritage_graph.py` |
 | RAG 요청 흐름·계약 검증 | `src/rag_service/service.py` |
 | 근거 정책 | `src/rag_service/grounding.py` |
 | Ollama 생성 | `src/rag_service/ollama_generator.py` |
@@ -257,4 +267,4 @@ python run.py
 | BM25 검색 | `src/rag_indexing/bm25_store.py` |
 | RRF Hybrid 검색 | `src/rag_indexing/hybrid_retriever.py` |
 | 답변 품질 평가 | `src/evaluation/ragas_evaluator.py` |
-| 브라우저 TTS | `app/components/response_cards.py` |
+| 브라우저 TTS | `frontend/src/components/SummaryListen.jsx`, `frontend/src/components/summarySpeech.js` |
