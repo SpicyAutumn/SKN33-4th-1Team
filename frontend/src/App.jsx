@@ -189,7 +189,7 @@ export default function App({ request = api } = {}) {
     request("me/searches/" + encodeURIComponent(myPageDetail.id)).then((record) => {
       if (!active || version !== requestVersion.current) return;
       setQuestion(record.question); setLevel(record.audience_level);
-      setResult({ ...record, savedRecord: true });
+      setResult({ ...record, search_record_id: record.id, search_result_id: record.id, savedRecord: true });
     }).catch((error) => {
       if (active && version === requestVersion.current) setResult({ error: error.message });
     }).finally(() => {
