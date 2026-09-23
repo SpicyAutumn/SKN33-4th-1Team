@@ -40,5 +40,9 @@ jobs:
       - name: Run search link API integration tests
         run: python backend/manage.py test api.link_tests --settings=config.search_links_test_settings
 
+
+      - name: Run database schema API tests (isolated SQLite)
+        run: python backend/manage.py test api.schema_tests --settings=config.db_cleaning_test_settings --noinput
+
       - name: Run semantic verifier experiment tests (offline)
         run: python -X utf8 -B -m unittest discover -s experiments/semantic_verifier -p "test_*.py"
