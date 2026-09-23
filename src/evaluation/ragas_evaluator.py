@@ -211,7 +211,7 @@ def evaluate_response(
 
 
 def _run_async(coroutine: Any) -> dict[str, Any]:
-    """일반 Streamlit 실행과 이미 이벤트 루프가 있는 환경을 모두 지원한다."""
+    """일반 실행과 이미 이벤트 루프가 있는 환경을 모두 지원한다."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:

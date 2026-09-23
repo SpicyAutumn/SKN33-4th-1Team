@@ -123,7 +123,7 @@ Graph 원시 JSON 스키마 준수142/142, 서비스 실행 성공120/120, 모�
 
 추가 개선을 한다면 먼저 판단 단계에서 동일 대상·동일 속성 근거를 지키는지(032), 반박 근거가 없을 때 정정을 만들지 않는지(040)를 해결해야 한다. 별도 모델·검수기 추가 없이도 논의할 수 있는 수정 대상이지만, 이번에는 더 수정하거나 재실험하지 않았다.
 
-- 공유용 보고서: `docs/FOURTH_QWEN_LANGGRAPH_DEV120_RESULTS.md`
+- 공유용 보고서: `docs/experiments/FOURTH_QWEN_LANGGRAPH_DEV120_RESULTS.md`
 - 재현/집계/감사 코드: `experiments/qwen_graph_dev120/{evaluate,summarize,audit,latency}.py`
 - 유형/내용/시간 결과: 같은 폴더의 `results_summary.json`, `behavior_review.json`, `review_summary.json`, `latency.json`
 - 로컬 원자료: `outputs/qwen_graph_dev120/v1/`의 고정 cases/plan/rubric/runtime,142쌍 요청·원응답,120건 서비스 응답·판단·그래프 추적,양쪽 답변 대조,보고서,상세 내용 검토,SHA-256 manifest

@@ -1,1 +1,1 @@
-"""Track C Streamlit application package."""
+"""Django 백엔드가 사용하는 RAG·문화유산 네트워크 런타임 모듈."""

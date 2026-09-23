@@ -325,7 +325,7 @@ python scripts/validate_aks_chunks.py `
 - `outputs/aks_raw_validation.json`, `outputs/aks_raw_validation_report.md`
 - `docs/document-card.md`
 - `docs/hybrid_retrieval_evaluation_report.md`
-- `docs/hybrid_retrieval_experiment_matrix.md`
+- `docs/experiments/hybrid_retrieval_experiment_matrix.md`
 - `docs/named_heritage_retrieval_regression_report.md`
 - `docs/track_b/02_generation_contract.md`
 - `docs/track_b/03_prompt_baseline.md`

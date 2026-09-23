@@ -20,7 +20,7 @@ D03의 운영 기능 확대를 미루더라도 기존 오프라인 평가의 원
 
 2026-09-15에 확인한 main `f2373d896dfac9c16fae98958ae4d6172cb49027`의 코드와 테스트를 정적으로 읽었다. 테스트 실행·실제 화면 재현·모델 호출은 하지 않았다. 아래 ‘존재’는 구현/테스트가 있다는 뜻이지 모든 실제 응답이 기준을 통과한다는 뜻은 아니다.
 
-기존 [생성 평가 기준](track_b/04_generation_evaluation_criteria.md)은 이미 원본과 서비스 결과 분리, 근거 일치·질문 충족·명확성 평가를 정의한다. 새 기능이 전혀 없다는 전제에서 출발하지 않는다.
+기존 [생성 평가 기준](../track_b/04_generation_evaluation_criteria.md)은 이미 원본과 서비스 결과 분리, 근거 일치·질문 충족·명확성 평가를 정의한다. 새 기능이 전혀 없다는 전제에서 출발하지 않는다.
 
 ## 한눈에 보는 역할과 검토 요청
 
@@ -69,11 +69,11 @@ D03의 운영 기능 확대를 미루더라도 기존 오프라인 평가의 원
 
 아래 약어는 상세 대응표에서만 사용한다. 검토 요청은 위 D01~D03을 기준으로 읽으면 된다.
 
-- G: [생성 코드](../src/rag_service/ollama_generator.py)의 `SYSTEM_PROMPT`, `_normalize_corrected_premise`, `_clean_correction_message`, `OllamaGenerator`.
-- S: [서비스 코드](../src/rag_service/service.py)의 `_validate_premise_correction`, `_finalize` 및 생성 결과 검증.
-- U: [응답 카드](../app/components/response_cards.py)의 `_render_correction`. [질문 탭](../app/tabs/chat.py)에서 호출한다.
-- M: [서비스 지표](../src/evaluation/service_metrics.py)의 `score_response`.
-- TG: [생성 테스트](../tests/test_ollama_generator.py), TS: [서비스 테스트](../tests/test_rag_service.py).
+- G: [생성 코드](../../src/rag_service/ollama_generator.py)의 `SYSTEM_PROMPT`, `_normalize_corrected_premise`, `_clean_correction_message`, `OllamaGenerator`.
+- S: [서비스 코드](../../src/rag_service/service.py)의 `_validate_premise_correction`, `_finalize` 및 생성 결과 검증.
+- U: 당시 Streamlit 응답 카드(`app/components/response_cards.py`)의 `_render_correction`. 질문 탭(`app/tabs/chat.py`)에서 호출했다. Streamlit 화면은 React 웹 전환 후 삭제되었다.
+- M: [서비스 지표](../../src/evaluation/service_metrics.py)의 `score_response`.
+- TG: [생성 테스트](../../tests/test_ollama_generator.py), TS: [서비스 테스트](../../tests/test_rag_service.py).
 
 <details>
 <summary>PC01~PC07별 기존 구현·테스트와 남은 확인 범위</summary>
@@ -88,7 +88,7 @@ D03의 운영 기능 확대를 미루더라도 기존 오프라인 평가의 원
 | PC06. 부족·충돌·모호함을 정정과 구분 | G가 `insufficient_evidence`·`needs_clarification`을 구분. S가 응답별 필드 조합 검사 | TG의 `test_non_answer_clears_incompatible_detail_fields`, 일반 부정 문장 재분류 방지 테스트 | 필드 조합 검사가 출처 간 충돌 해결을 뜻하지 않음. 부족을 모순으로 확대하는 사례를 별도 내용 검토 |
 | PC07. 원본·자동 보완·표시 결과 구분 | 기존 평가 문서에 원본/최종 결과 분리 명시. G는 응답 파싱 후 보완하고 보완 결과를 반환 | TS의 `test_answer_with_trace_reuses_one_search_and_keeps_unselected_contexts`는 검색 문맥 보존 테스트 | 검색 trace가 생성 원문 보존을 증명하지 않음. 확인한 G 반환값에는 보완 전 원문과 표시 문구를 별도 묶어 반환하는 항목이 없음. 전체 기록 경로 완비 여부는 별도 확인 |
 
-위 테스트는 관련된 좁은 행동을 확인하는 자료다. PC 기준 전체를 만족하는 테스트 세트라고 주장하지 않는다. [PR #2의 기록 도구](../experiments/semantic_verifier/offline_record.py)는 독립 평가용이며 서비스 원본·표시 기록 기능을 대신하지 않는다.
+위 테스트는 관련된 좁은 행동을 확인하는 자료다. PC 기준 전체를 만족하는 테스트 세트라고 주장하지 않는다. [PR #2의 기록 도구](../../experiments/semantic_verifier/offline_record.py)는 독립 평가용이며 서비스 원본·표시 기록 기능을 대신하지 않는다.
 
 </details>
 
@@ -121,7 +121,7 @@ D03의 운영 기능 확대를 미루더라도 기존 오프라인 평가의 원
 
 ## 역할과 PR 범위
 
-[기존 역할 문서](track_b/01_role_and_scope.md)에 따라 생성은 지시문·생성 구간, RAG 통합은 최종 유형·근거·출처, UI는 화면 표시를 맡는 구분을 유지한다. 문서 일부에는 검토 예정 상태가 남아 있으므로 이를 새로운 인력 배정이나 최신 전체 합의로 단정하지 않는다.
+[기존 역할 문서](../track_b/01_role_and_scope.md)에 따라 생성은 지시문·생성 구간, RAG 통합은 최종 유형·근거·출처, UI는 화면 표시를 맡는 구분을 유지한다. 문서 일부에는 검토 예정 상태가 남아 있으므로 이를 새로운 인력 배정이나 최신 전체 합의로 단정하지 않는다.
 
 이번 PR은 [후속 결과](CLAIM_COMPARISON_FOLLOWUP.md)와 이 대응표만 공유한다. 실제 코드·프롬프트·화면 변경은 관련 담당자 의견 후 별도 구현 범위로 정한다.
 

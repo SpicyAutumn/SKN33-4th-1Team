@@ -127,6 +127,6 @@ L03은 세 버전 각각 6개 모두 `answered`와 정정 상세 `null`을 반�
 
 관련 기존 문서:
 
-- [생성 평가 기준](track_b/04_generation_evaluation_criteria.md)
+- [생성 평가 기준](../track_b/04_generation_evaluation_criteria.md)
 - [전제 교정 검토](PREMISE_CORRECTION_REVIEW.md)
 - [앞선 후속 주장 검증 비교](CLAIM_COMPARISON_FOLLOWUP.md)
