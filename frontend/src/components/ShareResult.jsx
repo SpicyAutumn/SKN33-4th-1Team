@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { copyText } from "./copyText";
 import "./ShareResult.css";
 
 export default function ShareResult({ result, request }) {
@@ -21,7 +22,7 @@ export default function ShareResult({ result, request }) {
         link = new URL(path, window.location.origin).href;
         setUrl(link);
       }
-      await navigator.clipboard.writeText(link);
+      await copyText(link);
       setMessage("복사되었습니다");
     } catch {
       setMessage("복사하지 못했습니다. 다시 시도해 주세요.");
