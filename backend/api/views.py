@@ -1,6 +1,7 @@
 import hashlib
 import json
 import secrets
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -30,9 +31,20 @@ REPORT_STATUSES = {"received", "reviewing", "completed"}
 
 def _payload(request):
     try:
-        return json.loads(request.body or "{}")
-    except json.JSONDecodeError:
+        payload = json.loads(request.body or "{}")
+        return payload if isinstance(payload, dict) else None
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return None
+
+
+def _is_uuid(value):
+    if not isinstance(value, (str, uuid.UUID)):
+        return False
+    try:
+        uuid.UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return True
 
 
 def _error(code, message, status=400, details=None):
@@ -519,7 +531,10 @@ def error_reports(request):
     payload = _payload(request)
     if not isinstance(payload, dict):
         return _error("INVALID_REQUEST", "요청 형식이 올바르지 않습니다.")
-    record = SearchRecord.objects.filter(id=payload.get("search_record_id"), owner=session.user).first()
+    search_record_id = payload.get("search_record_id")
+    if not _is_uuid(search_record_id):
+        return _error("VALIDATION_ERROR", "검색 기록 ID 형식이 올바르지 않습니다.", 422)
+    record = SearchRecord.objects.filter(id=search_record_id, owner=session.user).first()
     categories = _report_categories(payload)
     selected_quotes = _selected_quotes(payload, record.message) if record else None
     content = str(payload.get("content", "")).strip()

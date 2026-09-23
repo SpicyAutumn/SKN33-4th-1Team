@@ -117,6 +117,25 @@ class ErrorReportApiTests(TestCase):
                 self.assertEqual(self.post_report(**fields).status_code, 422)
         self.assertEqual(ErrorReport.objects.count(), 0)
 
+    def test_non_object_json_returns_structured_error_instead_of_500(self):
+        for body in (b"[]", b"42", b"null", b"not-json"):
+            with self.subTest(body=body):
+                response = self.client.post(
+                    "/api/v1/auth/signup", data=body,
+                    content_type="application/json", HTTP_HOST="localhost",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"]["code"], "INVALID_REQUEST")
+
+    def test_invalid_search_record_uuid_returns_validation_error(self):
+        response = self.client.post(
+            "/api/v1/me/error-reports",
+            data=json.dumps({"search_record_id": "not-a-uuid", "category": "other"}),
+            content_type="application/json", HTTP_HOST="localhost",
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["error"]["code"], "VALIDATION_ERROR")
+
     def test_report_cannot_target_another_users_answer(self):
         other = ServiceUser.objects.create(email="other@example.com", name="Other", password_hash="unused")
         self.record.owner = other
