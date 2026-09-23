@@ -6,8 +6,6 @@ load model metadata without requiring a MySQL driver or server.
 
 SECRET_KEY = "offline-unit-test-only"
 INSTALLED_APPS = [
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
     "accounts",
     "api",
 ]

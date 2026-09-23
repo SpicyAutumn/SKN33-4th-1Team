@@ -76,7 +76,6 @@ class ErrorReport(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(ServiceUser, on_delete=models.RESTRICT, related_name="error_reports")
     search_record = models.ForeignKey(SearchRecord, on_delete=models.RESTRICT, related_name="error_reports")
-    category = models.CharField(max_length=40)
     content = models.TextField()
     status = models.CharField(max_length=20, default="received")
     staff_reply = models.TextField(null=True, blank=True)
@@ -102,3 +101,45 @@ class SearchResult(models.Model):
 
     class Meta:
         db_table = "search_results"
+
+
+class ErrorReportType(models.Model):
+    """One selected error type for an error report.
+
+    This table is the single source of truth for report categories.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    error_report = models.ForeignKey(ErrorReport, on_delete=models.CASCADE, related_name="types")
+    code = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "error_report_types"
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["error_report", "code"], name="error_report_type_uq"),
+        ]
+
+
+class ErrorReportQuote(models.Model):
+    """A sentence or passage selected from the answer being reported.
+
+    Offsets make repeated identical wording distinguishable. They are nullable
+    so reports created before sentence-selection UI is released remain valid.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    error_report = models.ForeignKey(ErrorReport, on_delete=models.CASCADE, related_name="selected_quotes")
+    ordinal = models.PositiveSmallIntegerField()
+    text = models.TextField()
+    start_offset = models.PositiveIntegerField(null=True, blank=True)
+    end_offset = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "error_report_quotes"
+        ordering = ["ordinal"]
+        constraints = [
+            models.UniqueConstraint(fields=["error_report", "ordinal"], name="error_report_quote_ordinal_uq"),
+        ]
