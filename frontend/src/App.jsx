@@ -80,6 +80,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
   const citations = result?.citations || [];
   const isShareableAnswer = ["answered", "corrected_premise"].includes(result?.response_type);
+  const shareResultId = result?.search_result_id || result?.search_record_id || result?.id;
   return <section className={reportActive ? "answer-page report-active" : "answer-page"}><div className="answer-shell">
     <button type="button" className="back-to-search" onClick={onBack}>← {backLabel}</button>
     <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={readOnly || loading || value === level}>{label}</button>)}</div></section>
@@ -87,7 +88,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : (loadingPreview || <HeritageLoading />))}
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
-      <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div>{!readOnly && !loading && isShareableAnswer && request && (result.search_result_id || result.share_path) && <ShareResult key={result.search_result_id || result.share_path} result={result} request={request} />}</header>
+      <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div>{!readOnly && !loading && isShareableAnswer && request && (shareResultId || result.share_path) && <ShareResult key={shareResultId || result.share_path} result={{ ...result, search_result_id: shareResultId }} request={request} />}</header>
       <div className="ai-answer-body"><AnswerMediaLayout key={result.request_id || result.search_record_id || question + level} media={result.media} citations={citations}><AnswerContent result={result} answerRef={answerText} />
         {onAsk && ["needs_clarification", "insufficient_evidence"].includes(result.response_type) && <QuestionRetry key={result.request_id || result.search_record_id || question + level} question={question} result={result} onAsk={onAsk} busy={loading} />}
         </AnswerMediaLayout>

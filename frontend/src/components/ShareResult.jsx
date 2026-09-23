@@ -5,6 +5,7 @@ export default function ShareResult({ result, request }) {
   const [url, setUrl] = useState(result.share_path ? new URL(result.share_path, window.location.origin).href : "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const resultId = result.search_result_id || result.search_record_id || result.id;
   useEffect(() => {
     if (!message) return undefined;
     const timer = window.setTimeout(() => setMessage(""), 2000);
@@ -15,7 +16,8 @@ export default function ShareResult({ result, request }) {
     try {
       let link = url;
       if (!link) {
-        const { share_path: path } = await request(`searches/${result.search_result_id}/share`, { method: "POST" });
+        if (!resultId) throw new Error("공유할 검색 결과를 찾을 수 없습니다.");
+        const { share_path: path } = await request(`searches/${resultId}/share`, { method: "POST" });
         link = new URL(path, window.location.origin).href;
         setUrl(link);
       }
