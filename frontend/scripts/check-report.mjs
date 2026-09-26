@@ -19,12 +19,9 @@ assert.throws(() => reportPayload({ ...base, mode: 'legacy', content: '짧음' }
 assert.throws(() => reportPayload({ ...base, mode: 'legacy', categories: ['incorrect_fact', 'other'], content: '가'.repeat(10) }));
 console.log('PASS: legacy fields, required explanation, other, empty category, quote count, exact offsets, Unicode/repeated phrases, length limit');
 
-const preview = { ...base, mode: 'legacy', optionalDescriptionPreview: true };
-assert.equal(reportPayload(preview).content, '');
-assert.throws(() => reportPayload({ ...preview, categories: ['other'], content: '   ' }));
-assert.equal(reportPayload({ ...preview, categories: ['other'], content: '설명' }).content, '설명');
+// Prototype-only fields cannot relax the production API contract.
+assert.throws(() => reportPayload({ ...base, mode: 'legacy', optionalDescriptionPreview: true }));
 for (const category of ['irrelevant_answer', 'unclear_answer', 'ui_function_error']) {
-  assert.equal(reportPayload({ ...preview, categories: [category] }).category, category);
-  assert.throws(() => reportPayload({ ...preview, optionalDescriptionPreview: false, categories: [category], content: '가'.repeat(10) }));
+  assert.throws(() => reportPayload({ ...base, mode: 'legacy', optionalDescriptionPreview: true, categories: [category], content: '가'.repeat(10) }));
 }
-console.log('PASS: preview-only categories, optional description, other required, production isolation');
+console.log('PASS: unsupported preview categories and empty legacy descriptions stay rejected');

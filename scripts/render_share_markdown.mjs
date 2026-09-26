@@ -5,7 +5,8 @@ const projectRoot = path.resolve(import.meta.dirname, "..");
 const docsDir = path.join(
   projectRoot,
   "docs",
-  "00_topic_selection",
+  "archive",
+  "topic-selection",
   "03_post_meeting_reviews",
 );
 const targets = [

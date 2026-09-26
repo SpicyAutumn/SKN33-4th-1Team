@@ -16,13 +16,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  checks:
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          persist-credentials: false
+      - name: Wait for all required main push checks for this commit
+        run: python3 scripts/deploy/check_required_runs.py --sha "$DEPLOY_SHA" --timeout 900
+
+  deploy:
+    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -49,10 +64,8 @@ jobs:
           [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]]
           [[ -n "$AWS_REGION" && -n "$DEPLOY_ROLE" ]]
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
-          [[ "$latest" == "$DEPLOY_SHA" ]] || { echo 'main has moved; deploy its newest successful test run instead.'; exit 1; }
-          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/python-tests.yml/runs?branch=main&event=push&status=success&head_sha=$DEPLOY_SHA" --jq '.total_count')
-          (( count > 0 )) || { echo 'No successful main push test run for this commit.'; exit 1; }
+          # Recheck after the waiting job, before acquiring AWS credentials.
+          python3 scripts/deploy/check_required_runs.py --sha "$DEPLOY_SHA" --timeout 0
 
       - name: Show non-secret OIDC identity for trust-policy verification
         shell: bash

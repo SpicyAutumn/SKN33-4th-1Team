@@ -1,6 +1,6 @@
 # Heritage Guide API 명세 (현재 구현)
 
-기준: `backend/api/urls.py`, `backend/api/views.py`, `backend/api/search_links.py`, `backend/api/network_views.py`의 `mk/api-contract-cleanup` 변경분. 모든 경로는 `/api` 접두사를 포함하며 JSON을 받는 요청은 `Content-Type: application/json`을 사용한다. 로그인 사용자 API는 `heritage_session` 쿠키로 인증한다. 브라우저의 상태 변경 요청은 먼저 `GET /api/v1/auth/csrf`를 호출하고 `X-CSRFToken` 헤더를 보내야 한다. 관리자 API는 `heritage_admin_session` 쿠키를 사용한다.
+기준: `backend/api/urls.py`, `backend/api/views.py`, `backend/api/search_links.py`, `backend/api/network_views.py`의 현재 구현. 모든 경로는 `/api` 접두사를 포함하며 JSON을 받는 요청은 `Content-Type: application/json`을 사용한다. 로그인 사용자 API는 `heritage_session` 쿠키로 인증한다. 브라우저의 상태 변경 요청은 먼저 `GET /api/v1/auth/csrf`를 호출하고 `X-CSRFToken` 헤더를 보내야 한다. 관리자 API는 `heritage_admin_session` 쿠키를 사용한다.
 
 오류 응답은 일반적으로 `{"error":{"code":"...","message":"..."}}` 형식이다. 입력 형식 오류는 400, 인증 실패는 401, 권한 또는 리소스 없음은 404, 규칙 위반은 422, 이미 사용 중인 이메일은 409, 상위 RAG 서비스 장애는 502, 연관망 서비스 장애는 503을 반환한다. Django CSRF 거부와 라우트/HTTP 메서드 불일치는 프레임워크 응답일 수 있어 이 JSON 형식이 보장되지 않는다.
 
@@ -83,5 +83,5 @@
 ## 관련 문서
 
 - [검색 결과 링크 동작 및 공유](../SEARCH_RESULT_LINKS.md)
-- [오류 제보 화면의 최신 구현 계약과 과거 시안 구분](../ERROR_REPORT_UI_SPEC.md)
+- [오류 제보 화면의 최신 구현 계약과 과거 시안 구분](../archive/ui/ERROR_REPORT_UI_SPEC.md)
 - OpenAPI/Swagger 기계 판독 문서는 아직 생성하지 않았다. 이 문서는 코드 기준의 사람용 명세다.

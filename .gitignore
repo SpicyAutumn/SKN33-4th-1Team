@@ -1,5 +1,10 @@
 # Python
 /_local/
+/.worktrees/
+/.pytest-integration-*/
+/.venv-*/
+/tmp/
+/output/
 
 # Python
 __pycache__/

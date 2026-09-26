@@ -28,4 +28,7 @@ assert.ok(fallback.includes(prepared.copyright_display));
 const unmatched = renderToStaticMarkup(React.createElement(Component, { citations: [{ title: prepared.article_title, document_id: 'aks:OTHER' }] }, '답변'));
 assert.doesNotMatch(unmatched, /has-media/);
 buildSync({ absWorkingDir: root, entryPoints: ['src/review/history-review.jsx'], bundle: true, write: false, platform: 'browser', jsx: 'automatic', loader: { '.css': 'empty' } });
+const productBuild = buildSync({ absWorkingDir: root, entryPoints: ['src/main.jsx'], bundle: true, write: false, metafile: true, platform: 'browser', jsx: 'automatic', loader: { '.css': 'empty' } });
+assert.ok(Object.keys(productBuild.metafile.inputs).every((file) => !file.replaceAll('\\', '/').includes('src/review/')), 'development review code must not enter the production bundle');
 console.log('PASS: media presence, attribution, document match, URL scheme, license, deduplication, head priority, review entry build');
+console.log('PASS: production bundle excludes development review modules');

@@ -16,9 +16,12 @@
 
 ## 배포 조건과 범위
 
-- 기존 `Python tests` 워크플로의 **main push 테스트가 성공**하면 해당 커밋을 배포합니다.
+- `Python tests`의 main push 성공으로 배포 준비를 시작하고, **같은 커밋의 Python tests·Frontend checks·Heritage network checks가 모두 성공**해야 AWS 인증과 배포를 진행합니다.
+- 대기 전용 `checks` 작업은 최대 15분 동안 나머지 검사를 확인합니다. 누락·실행 중인 검사는 성공으로 간주하지 않으며 시간 초과 시 배포를 차단합니다. 대기 작업에는 AWS 인증 권한이 없습니다.
+- 성공 기록만 검색하지 않고 각 워크플로의 최신 실행/재실행 상태를 확인합니다. 이전 성공 뒤 최신 실행이 실패·취소·건너뜀 상태면 배포하지 않습니다.
 - PR 테스트만으로는 배포하지 않습니다. PR은 기존 CONTRIBUTING.md에 따라 팀원 승인을 받고 병합합니다.
-- 수동 실행도 main에서만 가능하며, 해당 커밋의 main push 테스트 성공을 확인합니다.
+- 수동 실행도 main에서만 가능하며 동일한 3개 검사의 main push 성공을 확인합니다. PR 검사의 성공이나 다른 커밋의 결과로 대신하지 않습니다.
+- 검사가 모두 끝난 뒤와 실제 배포 작업 시작 시 최신 main과 검사 상태를 재확인합니다. 프런트 검사는 문서 변경만 있는 경우에도 실행해 커밋별 배포 조건이 누락되지 않게 합니다.
 - 오래된 테스트 결과가 뒤늦게 도착하면 최신 main과 다른 커밋의 배포를 거부합니다.
 - 서버 경로는 `/home/ubuntu/SKN33-4th-1Team`, 실행 사용자는 `ubuntu`입니다.
 - `.env`와 `data/processed`는 EC2의 기존 파일을 사용합니다. 복사·삭제·출력하지 않습니다.
@@ -108,11 +111,21 @@ GitHub → Settings → Secrets and variables → Actions → **Variables**에 �
 1. EC2에서 기존 사이트와 MySQL 연결이 정상인지 확인합니다.
 2. 위 AWS 연결과 GitHub 변수를 준비합니다.
 3. 설정 PR을 팀원 검토 후 main에 병합합니다. 이때부터 배포가 활성화됩니다.
-4. Actions → Python tests 성공 후 Deploy main to EC2가 성공하는지 확인합니다.
+4. Actions에서 Python tests·Frontend checks·Heritage network checks를 확인하고, Deploy main to EC2의 `checks` → `deploy` 순서가 성공하는지 확인합니다.
 5. 실제 사이트의 화면과 로그인/검색 기능을 확인합니다. CI와 health 검사만으로 외부 AI 서비스까지 보장하지 않습니다.
-6. 재시도는 Actions → Deploy main to EC2 → Run workflow → main으로 실행합니다. main에 성공한 push 테스트가 없으면 먼저 Python tests 실패를 해결합니다.
+6. 검사 실패·취소 시 해당 검사를 먼저 재실행합니다. 세 검사 모두 성공한 뒤 Actions → Deploy main to EC2 → Run workflow → main으로 배포를 재시도합니다. 프런트·연관 탐색 검사만 재실행해 성공한 경우 배포를 자동으로 다시 시작하지는 않습니다.
 
 현재 워크플로는 AWS 인증을 main으로 제한하므로 기능 브랜치에서 운영 서버에 수동 배포할 수 없습니다. 병합 전 로컬 검사는 구문과 로직 검사이며 실제 OIDC/SSM 연결 검증과 다릅니다.
+
+## 자동 검사의 역할
+
+| 워크플로 | 담당 검사 |
+|---|---|
+| Python tests | 공통 Python 테스트(연관 탐색 로직 포함), 백엔드 API·검색 공유·DB 구조, 오프라인 실험 |
+| Frontend checks | 프런트 전체 테스트(연관 탐색 상태 포함), 제보·사진·로딩·재질문 검사와 제품 빌드 |
+| Heritage network checks | 별도 Django 연관 탐색 API 테스트 |
+
+중복 실행하던 공통 Python 검사·프런트 검사·빌드는 각각 담당 워크플로로 모았습니다. 기존 워크플로 이름과 작업 ID는 유지합니다. 공용 통합 테스트는 별도 EC2 구성·배포이며 운영 배포의 필수 검사 목록과 구분합니다. [워크플로 안내](../.github/workflows/README.md)를 참고하세요.
 
 ## 운영 시 유의점
 
@@ -122,6 +135,9 @@ GitHub → Settings → Secrets and variables → Actions → **Variables**에 �
 - API 키와 DB 정보가 들어갈 수 있으므로 `.env`, `docker compose config` 전체 결과를 Actions 로그에 출력하지 마세요.
 
 ## 공식 참고
+
+- [GitHub workflow_run 이벤트](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run)
+- [커밋별 워크플로 실행 조회](https://docs.github.com/en/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow)
 
 - [GitHub OIDC와 AWS](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
 - [SSM Run Command](https://docs.aws.amazon.com/systems-manager/latest/userguide/walkthrough-cli.html)

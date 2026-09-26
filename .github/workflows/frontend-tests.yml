@@ -2,14 +2,8 @@ name: Frontend checks
 
 on:
   pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
   push:
     branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
 
 permissions:
   contents: read
@@ -33,4 +27,5 @@ jobs:
       - run: node scripts/check-question-retry.cjs
       - run: node scripts/check-report.mjs
       - run: node scripts/check-answer-media.cjs
+      - run: node scripts/check-heritage-loading.cjs
       - run: npm run build

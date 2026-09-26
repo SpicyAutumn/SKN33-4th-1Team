@@ -11,8 +11,8 @@
 ## 2. 최초 1회 설정
 
 ```bash
-git clone https://github.com/SpicyAutumn/SKN33-3rd-1Team.git
-cd SKN33-3rd-1Team
+git clone https://github.com/SpicyAutumn/SKN33-4th-1Team.git
+cd SKN33-4th-1Team
 python -m venv .venv
 ```
 
@@ -62,6 +62,8 @@ git checkout -b feature/기능이름
 
 ## 4. 작업과 커밋
 
+새 파일 위치는 [파일을 두는 기준](docs/REPOSITORY_STRUCTURE.md)을 따릅니다. 제품 코드, 개발용 검증 화면, 실험, 과거 기록을 구분합니다.
+
 작업 중 수시로 확인합니다.
 
 ```bash
@@ -72,7 +74,7 @@ git diff
 가능하면 변경 파일을 선택해 스테이징합니다.
 
 ```bash
-git add src/retrieval/retriever.py tests/unit/test_retriever.py
+git add src/rag_indexing/hybrid_retriever.py tests/test_hybrid_retriever.py
 git diff --staged
 git commit -m "feat: 문서 검색기 구현"
 ```

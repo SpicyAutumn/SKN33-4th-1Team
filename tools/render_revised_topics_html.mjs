@@ -5,11 +5,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const inputPath = resolve(
   scriptDir,
-  "../docs/00_topic_selection/01_initial_review/revised_topic_2_3_share.md",
+  "../docs/archive/topic-selection/01_initial_review/revised_topic_2_3_share.md",
 );
 const outputPath = resolve(
   scriptDir,
-  "../docs/00_topic_selection/01_initial_review/revised_topic_2_3_share.html",
+  "../docs/archive/topic-selection/01_initial_review/revised_topic_2_3_share.html",
 );
 
 const markedModulePath = process.env.REVISED_TOPICS_MARKED_MODULE;

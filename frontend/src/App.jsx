@@ -74,7 +74,7 @@ const api = async (path, options = {}) => {
   return body;
 };
 
-export function AnswerView({ question, level, result, loading, loadingRecord, onBack, backLabel = "검색으로 돌아가기", onChangeLevel, onSubmitReport, reportMode = "legacy", capturePreview = false, loadingPreview = null, onAsk, readOnly = false, request }) {
+export function AnswerView({ question, level, result, loading, loadingRecord, onBack, backLabel = "검색으로 돌아가기", onChangeLevel, onSubmitReport, reportMode = "legacy", onAsk, readOnly = false, request }) {
   const [reportActive, setReportActive] = useState(false);
   const answerText = useRef(null);
   const levelLabel = levels.find(([value]) => value === level)?.[1] || "중·고등학생";
@@ -85,7 +85,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
     <button type="button" className="back-to-search" onClick={onBack}>← {backLabel}</button>
     <section className="asked-question"><div><span className="question-kicker">⌕ 질문</span><h1>{question}</h1></div><div className="answer-levels" aria-label={`선택된 설명 수준: ${levelLabel}`}>{levels.map(([value, label]) => <button type="button" key={value} className={value === level ? "selected" : ""} onClick={() => onChangeLevel(value)} disabled={readOnly || loading || value === level}>{label}</button>)}</div></section>
     {result?.savedRecord && <p className="saved-answer-note">저장된 답변입니다.{!readOnly && " 설명 수준을 변경하면 새 답변을 생성합니다."}</p>}
-    {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : (loadingPreview || <HeritageLoading />))}
+    {loading && (loadingRecord ? <div className="answer-loading" role="status">저장된 답변을 불러오고 있어요.</div> : <HeritageLoading />)}
     {result?.error && <div className="answer-error" role="alert">{result.error}</div>}
     {result && !result.error && <article className="ai-answer-card">
       <header className="ai-answer-header"><div><span className="ai-mark">AI</span><b>AI 답변</b><em>{levelLabel} 수준</em></div>{!readOnly && !loading && isShareableAnswer && request && (shareResultId || result.share_path) && <ShareResult key={shareResultId || result.share_path} result={{ ...result, search_result_id: shareResultId }} request={request} />}</header>
@@ -93,7 +93,7 @@ export function AnswerView({ question, level, result, loading, loadingRecord, on
         {onAsk && ["needs_clarification", "insufficient_evidence"].includes(result.response_type) && <QuestionRetry key={result.request_id || result.search_record_id || question + level} question={question} result={result} onAsk={onAsk} busy={loading} />}
         </AnswerMediaLayout>
         <div className={`answer-support${citations.length ? "" : " no-evidence"}`}><EvidenceSources citations={citations} />{result && !result.error && !loading && result.response_type !== "needs_clarification" && <HeritageNetwork answerKey={result.request_id || result.search_record_id || question + level} question={question} citations={result.response_type === "insufficient_evidence" ? [] : citations} recovery={result.response_type === "insufficient_evidence"} onAsk={onAsk} />}</div>
-        {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} capturePreview={capturePreview} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
+        {result.search_record_id && onSubmitReport && <ErrorReportPanel key={result.search_record_id} recordId={result.search_record_id} answer={result.message} answerRef={answerText} mode={reportMode} onSubmit={onSubmitReport} onOpenChange={setReportActive} />}
       </div>
     </article>}
 

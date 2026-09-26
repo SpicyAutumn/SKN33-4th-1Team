@@ -49,11 +49,11 @@
   - 라이선스, 필수 메타데이터, 설명문 품질과 갱신주기 확인
   - 후보별 대표 질문과 답변 불가 질문 작성 후 기본 검색 실험
   - 검증 통과 후보 중 최종 주제와 핵심 사용자 한 그룹 결정
-  - 상세 내용은 `docs/00_topic_selection/` 문서에 기록
+  - 상세 내용은 `docs/archive/topic-selection/` 문서에 기록
 - 관련 Issue/PR/문서:
-  - `docs/00_topic_selection/topic_selection_summary.md`
-  - `docs/00_topic_selection/topic_comparison_report.html`
-  - `docs/00_topic_selection/data_feasibility_check.md`
+  - `docs/archive/topic-selection/01_initial_review/topic_selection_summary.md`
+  - `docs/archive/topic-selection/01_initial_review/topic_comparison_report.html`
+  - `docs/archive/topic-selection/04_data_validation/data_feasibility_check.md`
 
 ### DEC-002: 문서 범위와 데이터 사용 권한
 
