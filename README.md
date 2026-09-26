@@ -58,22 +58,7 @@ flowchart LR
 
 ## 4. 시스템 구성
 
-```mermaid
-flowchart LR
-    U["사용자 브라우저"] -.-> DNS["DNS: skn33heritage.site → EC2 공인 IP"]
-    U -->|"HTTPS · 443"| W
-    subgraph EC2["AWS EC2 · Docker Compose"]
-    W["Nginx: TLS 종료 · React 화면 제공"] -->|"/api/ · 내부 8000"| A["Django API"]
-    A --> R["기존 검색·답변 코드"]
-    R --> K[("BM25: 단어 검색")]
-    M["사진·출처 자료"] --> A
-    A --> N["제목·주제어 기반 연관 탐색"]
-    end
-    A --> DB[("MySQL: 8개 서비스 테이블")]
-    R --> V[("Pinecone: 의미 검색")]
-    R <-->|"질문 임베딩"| E["OpenAI Embedding API"]
-    R <-->|"HTTPS · 생성 요청/응답"| L["RunPod GPU · Ollama: 답변 생성"]
-```
+![운영 서비스의 접속·검색·생성 구성도](docs/deliverables/assets/system-architecture.png)
 
 브라우저는 `skn33heritage.site`의 DNS 조회로 EC2 공인 IP를 찾고 HTTPS로 접속한다. EC2의 Nginx가 Let's Encrypt 인증서로 TLS 연결을 처리하고 React 화면을 제공하며, `/api/` 요청은 Docker 내부의 Django로 전달한다. HTTP(80) 접속은 HTTPS(443)로 전환한다.
 
@@ -104,6 +89,8 @@ MySQL은 서비스 이용 기록을, 검색 인덱스는 답변 근거를 찾는
 | 검사 방법과 확인 결과 | [테스트 계획·통합 결과](docs/deliverables/06_tests.md) |
 | 3차·4차 앱 실행 및 제출 | [실행·제출 안내](docs/deliverables/07_release.md) |
 
+API는 공개 상태 확인 `GET /api/health`와 질문 요청 `POST /api/v1/searches`부터 살펴볼 수 있다. 로그인·제보·관리자 기능의 입력과 권한은 [API 명세서](docs/deliverables/05_api.md)와 [상세 명세](docs/api/API_SPEC.md)에 구분했다.
+
 ## 6. 실행 안내
 
 저장소를 내려받은 뒤 Docker와 팀에서 안내하는 비공개 설정을 준비한다. 검색 인덱스·사진 자료와 외부 DB·검색·생성 서버 연결이 필요하다.
@@ -125,6 +112,8 @@ docker compose ps
 자세한 준비물과 3차 실행 경로는 [실행·제출 안내](docs/deliverables/07_release.md)를 따른다.
 
 ## 7. 개발·운영·테스트 구분
+
+![GitHub Actions에서 운영·공용 테스트 서버로 이어지는 배포 흐름](docs/deliverables/assets/deployment-flow.png)
 
 | 구분 | 목적 | 기준 |
 |---|---|---|

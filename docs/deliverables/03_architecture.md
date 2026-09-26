@@ -2,6 +2,8 @@
 
 ## 1. 전체 구성
 
+아래 도식은 운영 서버와 외부 서비스를 구분한다. 발표자료에는 같은 구성을 정리한 [PNG 구성도](assets/system-architecture.png)를 사용할 수 있다.
+
 ```mermaid
 flowchart TB
     U["사용자 브라우저"] -. "도메인 조회" .-> DNS["DNS: skn33heritage.site → EC2 공인 IP"]
@@ -48,6 +50,8 @@ RunPod를 새로 만들 때는 운영 백엔드의 `OLLAMA_BASE_URL`을 새 Pod 
 설정 근거: [운영 Compose](../../docker-compose.aws.yml), [Nginx HTTPS 설정](../../deploy/nginx-https.conf), [HTTPS 유지·갱신 절차](../MAIN_HTTPS.md). DNS 제공 업체는 구성도에서 특정하지 않는다.
 
 ### AWS 운영 자동 배포 흐름
+
+운영 배포와 공용 테스트 배포를 나란히 비교한 [PNG 배포도](assets/deployment-flow.png)도 제공한다. 두 환경은 EC2와 데이터베이스를 공유하지 않는다.
 
 ```mermaid
 flowchart LR
