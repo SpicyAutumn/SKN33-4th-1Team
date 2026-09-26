@@ -69,7 +69,7 @@ flowchart LR
 
 ## 5. 기존 모델 비교 결과
 
-출처: [모델 비교 보고서](../FOURTH_QWEN_BASELINE_RECOMMENDATION.md). 아래 수치는 기존 실험 기록이며 운영 웹의 응답을 다시 평가한 값이 아니다.
+출처: [모델 비교 보고서](../experiments/FOURTH_QWEN_BASELINE_RECOMMENDATION.md). 아래 수치는 기존 실험 기록이며 운영 웹의 응답을 다시 평가한 값이 아니다.
 
 | 비교 | EXAONE 기준선 | Qwen 교체 | 의미 |
 |---|---:|---:|---|

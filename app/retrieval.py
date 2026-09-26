@@ -1,4 +1,4 @@
-"""화면과 RAG Service 사이의 얇은 연결 계층.
+"""백엔드 API와 RAG Service 사이의 얇은 연결 계층.
 
 검색·근거판정·생성·Citation 조립은 `src/rag_service`의 RagService가 맡는다.
 이 모듈은 설명 수준 상수와 실행 모드 판별, 그리고 호출 결과 전달만 담당한다.
@@ -87,7 +87,7 @@ class _PinnedContextsRetriever:
 
 @lru_cache(maxsize=1)
 def get_service() -> RagService:
-    """Streamlit 재실행 사이에도 Pinecone·BM25·생성 모델 연결 객체를 재사용한다."""
+    """요청 사이에도 Pinecone·BM25·생성 모델 연결 객체를 재사용한다."""
     return rag_client.build_service()
 
 

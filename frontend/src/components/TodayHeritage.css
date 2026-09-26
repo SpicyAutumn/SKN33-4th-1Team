@@ -2,7 +2,13 @@
 .today-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
 .today-heading p { margin: 7px 0 0; font-size: 12px; line-height: 1.6; color: #69776f; }
 .today-pause { border: 0; background: transparent; color: #52736a; font-size: 11px; padding: 5px 0; white-space: nowrap; }
+.today-cards-stage { position: relative; }
 .today-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.today-cards--leaving { position: absolute; inset: 0 0 auto; width: 100%; pointer-events: none; }
+.today-cards--current .today-card { animation: today-card-enter 520ms cubic-bezier(.2,.75,.25,1) both; animation-delay: calc(var(--today-card-index) * 55ms); }
+.today-cards--leaving .today-card { animation: today-card-leave 460ms ease-in both; animation-delay: calc((2 - var(--today-card-index)) * 35ms); }
+@keyframes today-card-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes today-card-leave { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-7px); } }
 .today-card { min-width: 0; border: 1px solid #dce4dd; border-radius: 12px; background: #fafbf7; overflow: hidden; display: flex; flex-direction: column; }
 .today-ask { display: block; width: 100%; text-align: left; padding: 0; background: transparent; color: #243d35; }
 .today-photo { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #edf1e8; }
@@ -17,3 +23,4 @@
 .today-credit details { margin-top: 7px; }
 .today-credit summary { cursor: pointer; }
 @media(max-width:760px) { .today-cards { grid-template-columns: 1fr; } .today-ask { display: grid; grid-template-columns: minmax(100px, 34%) minmax(0,1fr); align-items: center; } .today-photo { border-radius: 6px; } .today-ask { padding: 10px 10px 0; } .today-copy { padding: 8px 0 8px 12px; } .today-credit { padding-top: 8px; } }
+@media(prefers-reduced-motion: reduce) { .today-cards--current .today-card, .today-cards--leaving .today-card { animation: none; } }

@@ -27,7 +27,7 @@ A는 기존 검수 지시, B는 주체·관계·사용 범위·추정 강도를 
 
 ## 실제 응답과 사용자 검수
 
-원문 전체 입력, 첫 검사·비교의 준비 호출까지 포함한 10개 출력은 [연구 증거 자료](../experiments/semantic_verifier/research_evidence.json)에 있습니다. 이 파일은 결과 보존 자료로, 실행 입력이나 다른 모델의 학습 데이터로 바로 사용하기 위한 파일이 아닙니다.
+원문 전체 입력, 첫 검사·비교의 준비 호출까지 포함한 10개 출력은 [연구 증거 자료](../../experiments/semantic_verifier/research_evidence.json)에 있습니다. 이 파일은 결과 보존 자료로, 실행 입력이나 다른 모델의 학습 데이터로 바로 사용하기 위한 파일이 아닙니다.
 
 ### V02-A
 
@@ -94,4 +94,4 @@ A는 기존 검수 지시, B는 주체·관계·사용 범위·추정 강도를 
 - [공식 콘텐츠 이용 안내](https://encykorea.aks.ac.kr/Guide/ContentUse)는 연구원이 권리를 보유한 자료의 이용 범위와 본문 출처 표시 방식을 안내합니다. 이번 자료에는 미디어를 넣지 않았습니다. 단선 개별 페이지는 이번 웹 조회에서 시간 초과되어 페이지별 최신 표시는 확인하지 못했습니다. 공통 본문 이용 안내와 보존 자료의 출처를 근거로 구성했습니다.
 - 모델: EXAONE 3.5, LG AI Research / LG Management Development Institute Co., Ltd. [공식 약관](https://github.com/LG-AI-EXAONE/EXAONE-3.5/blob/main/LICENSE)의 2.1(b), 4.2는 연구 결과·출력 공개에 관한 근거를, 3.1과 4.3은 이용 제한·출처 표시를 규정합니다. 상업 이용과 다른 모델의 개발·개선 용도로 자유롭게 재사용 가능한 자료라고 표시하지 않습니다. 제공사의 결과 보증이나 승인을 뜻하지 않습니다.
 
-[실험 조건·수치와 한계](SEMANTIC_VERIFIER_EXPERIMENT.md) · [실행 도구 사용 안내](../experiments/semantic_verifier/README.md)
+[실험 조건·수치와 한계](SEMANTIC_VERIFIER_EXPERIMENT.md) · [실행 도구 사용 안내](../../experiments/semantic_verifier/README.md)
