@@ -23,10 +23,10 @@
 
 ### 후속 설계 참고
 
-- [저장소 루트 README와 현재 팀 구성](../../README.md)
-- [Track B 역할 및 업무 범위](../track_b/01_role_and_scope.md)
-- [생성 컴포넌트 입출력 계약](../track_b/02_generation_contract.md)
-- [Prompt Baseline 설계](../track_b/03_prompt_baseline.md)
+- [저장소 루트 README와 현재 팀 구성](../../../README.md)
+- [Track B 역할 및 업무 범위](../../track_b/01_role_and_scope.md)
+- [생성 컴포넌트 입출력 계약](../../track_b/02_generation_contract.md)
+- [Prompt Baseline 설계](../../track_b/03_prompt_baseline.md)
 
 ## 2. 디렉터리 구분
 
@@ -67,7 +67,7 @@ Track B 역할·생성 계약·Prompt Baseline 정리
 - HTML 파일은 팀 공유·발표·시각화용 생성 결과로 사용합니다.
 - 회의록의 기존 발언과 과거 결론은 삭제하거나 현재 의견으로 덮어쓰지 않습니다.
 - 회의 후 분석은 회의 당시 합의와 별도 문서로 구분합니다.
-- 최종 주제가 결정되면 [프로젝트 정의서](../01_project_definition.md)와 [의사결정 기록](../decision_log.md)을 갱신합니다.
+- 최종 주제가 결정되면 [프로젝트 정의서](../../deliverables/01_requirements.md)와 [의사결정 기록](../../decision_log.md)을 갱신합니다.
 
 ## 5. 현재 미확정 사항
 

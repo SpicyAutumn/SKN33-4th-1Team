@@ -290,7 +290,7 @@
 - [ ] 소량 데이터로 검색 결과 상위 `k`에 근거 문서가 나타나는지 확인
 - [ ] 검증 결과를 [데이터 확보 가능성 검증서](../04_data_validation/data_feasibility_check.md)에 기록
 - [ ] 다음 회의에서 최종 주제, 핵심 사용자, 포함·제외 범위 결정
-- [ ] 결정 결과를 [`decision_log.md`](../../decision_log.md)의 `DEC-001`에 반영
+- [ ] 결정 결과를 [`decision_log.md`](../../../decision_log.md)의 `DEC-001`에 반영
 
 ## 9. 관련 문서
 
@@ -299,6 +299,6 @@
 - [3개 변경 주제 검토안](revised_topic_2_3_share.md)
 - [3개 변경 주제 검토안 HTML](revised_topic_2_3_share.html)
 - [데이터 확보 가능성 검증서](../04_data_validation/data_feasibility_check.md)
-- [프로젝트 정의서](../../01_project_definition.md)
-- [의사결정 기록](../../decision_log.md)
-- [데이터 전처리 보고서](../../02_data_preprocessing_report.md)
+- [프로젝트 정의서](../../../deliverables/01_requirements.md)
+- [의사결정 기록](../../../decision_log.md)
+- [데이터 전처리 보고서](../../../02_data_preprocessing_report.md)

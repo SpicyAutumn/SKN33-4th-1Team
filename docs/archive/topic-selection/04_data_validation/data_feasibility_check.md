@@ -214,4 +214,4 @@ data/
 6. 사용자에게 제공해서는 안 되는 최종 판단의 범위를 정의할 수 있다.
 7. 팀이 데이터 갱신과 재수집 절차를 관리할 수 있다.
 
-검증 결과는 [주제 선정 회의 기록](../01_initial_review/topic_selection_summary.md)에 요약하고, 최종 결정은 [`decision_log.md`](../../decision_log.md)의 `DEC-001`에 기록한다. 채택한 데이터의 본 수집과 전처리 결과는 [`02_data_preprocessing_report.md`](../../02_data_preprocessing_report.md)로 이어진다.
+검증 결과는 [주제 선정 회의 기록](../01_initial_review/topic_selection_summary.md)에 요약하고, 최종 결정은 [`decision_log.md`](../../../decision_log.md)의 `DEC-001`에 기록한다. 채택한 데이터의 본 수집과 전처리 결과는 [`02_data_preprocessing_report.md`](../../../02_data_preprocessing_report.md)로 이어진다.

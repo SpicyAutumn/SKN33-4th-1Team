@@ -1,5 +1,7 @@
 # Track C Streamlit 인계 — 문화유산 맞춤형 답변 서비스
 
+> 과거 인계 기록입니다. Streamlit 화면은 현재 4차 저장소에서 제거되었습니다. 현재 실행 안내는 [4차 실행 문서](../../deliverables/07_release.md)를 참고하세요. 아래 상태·경로는 작성 당시 기준입니다.
+
 최종 갱신: 2026-08-31. 브랜치 `feature/track-c-audience-level` (PR #13, Draft) 기준으로 다시 작성했다.
 이 문서는 팀 공통 API 계약을 바꾸거나 담당자를 확정하는 문서가 아니다.
 

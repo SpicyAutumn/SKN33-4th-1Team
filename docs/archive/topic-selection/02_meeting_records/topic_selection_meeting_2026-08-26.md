@@ -730,8 +730,8 @@ B2C 기능   질문, 문제풀이, 오답 진단, 수준별 해설
 1. 본 회의록의 빈 항목과 결정 내용을 기록자가 정리한다.
 2. 참석자는 발언·합의 내용이 정확한지 확인한다.
 3. 후보 목록과 잠정 결론은 [주제 선정 요약](../01_initial_review/topic_selection_summary.md)에 반영한다.
-4. 실제 채택·변경·폐기 결정은 [`decision_log.md`](../../decision_log.md)의 `DEC-001`에 반영한다.
+4. 실제 채택·변경·폐기 결정은 [`decision_log.md`](../../../decision_log.md)의 `DEC-001`에 반영한다.
 5. 데이터 조사 결과는 [데이터 확보 가능성 검증서](../04_data_validation/data_feasibility_check.md)에 작성한다.
-6. 최종 주제 확정 후 [프로젝트 정의서](../../01_project_definition.md)를 갱신한다.
+6. 최종 주제 확정 후 [프로젝트 정의서](../../../deliverables/01_requirements.md)를 갱신한다.
 
 > 회의록에는 논의 과정을 보존하고, 의사결정 기록에는 최종 선택과 근거만 간결하게 남긴다.

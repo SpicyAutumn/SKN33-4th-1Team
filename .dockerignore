@@ -11,3 +11,13 @@ data/processed/
 logs/
 *.log
 docs/
+_local/
+.worktrees/
+.venv/
+.venv-*/
+venv/
+.pytest_cache/
+.pytest-integration-*/
+tmp/
+output/
+outputs/
