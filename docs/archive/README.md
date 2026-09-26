@@ -8,6 +8,7 @@
 - [오류 제보 화면 시안](ui/ERROR_REPORT_UI_SPEC.md): 현재 제품 규칙과 구분하는 검토 기록
 - [3차 초기 주제 선정](topic-selection/README.md)
 - [4차 회의 기록](meetings/README.md)
+- [배포 검사 강화 전 구성도](assets/deployment-flow-before-ci-gate.png): Python 검사만 직접 배포 조건으로 사용하던 기록이며 현재 절차는 [운영 배포 안내](../MAIN_AUTO_DEPLOY.md)를 따른다
 
 주제 문서의 HTML 변환 도구는 `scripts/render_share_markdown.mjs`와 `tools/render_revised_topics_html.mjs`에 있으며 보관 경로를 사용합니다.
 

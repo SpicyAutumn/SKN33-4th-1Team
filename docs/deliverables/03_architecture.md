@@ -53,18 +53,19 @@ RunPod를 새로 만들 때는 운영 백엔드의 `OLLAMA_BASE_URL`을 새 Pod 
 
 ### AWS 운영 자동 배포 흐름
 
-운영 배포와 공용 테스트 배포를 나란히 비교한 [PNG 배포도](assets/deployment-flow.png)도 제공한다. 두 환경은 EC2와 데이터베이스를 공유하지 않는다.
+운영 배포와 공용 테스트 환경은 EC2와 데이터베이스를 공유하지 않는다. [변경 전 PNG 배포도](../archive/assets/deployment-flow-before-ci-gate.png)는 Python 성공만 직접 조건으로 삼던 과거 구성이다. 현재 배포 조건은 아래 흐름을 따른다.
 
 ```mermaid
 flowchart LR
     MAIN["main 커밋 · Python tests 성공"] --> ACTIONS["GitHub Actions: Deploy main to EC2"]
-    ACTIONS --> OIDC["OIDC: AWS IAM 역할 인증"]
+    ACTIONS --> GATE["같은 최신 main의 Python·Frontend·Network API 검사 모두 성공"]
+    GATE --> OIDC["OIDC: AWS IAM 역할 인증"]
     OIDC --> SSM["AWS Systems Manager Run Command"]
     SSM --> DEPLOY["운영 EC2: Docker Compose 빌드·교체"]
     DEPLOY --> CHECK["HTTPS 화면·API 상태 확인"]
 ```
 
-배포 워크플로는 최신 `main`과 해당 커밋의 테스트 성공을 확인한다. 수동 재실행에도 같은 확인을 적용하며, EC2의 기존 `.env`·데이터·인증서를 사용한다. 상세 절차는 [운영 자동 배포](../MAIN_AUTO_DEPLOY.md)를 따른다. 이 흐름은 운영 서버 기준이며, 공용 테스트 환경은 별도 EC2와 DB를 사용한다.
+배포 워크플로는 최신 `main`과 해당 커밋의 세 검사 성공을 확인한다. 진행 중이거나 아직 생성되지 않은 검사는 최대 15분 기다리고, 실패·취소·시간 초과 시 배포하지 않는다. 수동 재실행에도 같은 확인을 적용하며, EC2의 기존 `.env`·데이터·인증서를 사용한다. 상세 절차는 [운영 자동 배포](../MAIN_AUTO_DEPLOY.md)를 따른다.
 
 ## 2. 구성요소의 역할
 

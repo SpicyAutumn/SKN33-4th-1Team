@@ -62,7 +62,7 @@ flowchart LR
 
 브라우저는 `skn33heritage.site`의 DNS 조회로 EC2 공인 IP를 찾고 HTTPS로 접속한다. EC2의 Nginx가 Let's Encrypt 인증서로 TLS 연결을 처리하고 React 화면을 제공하며, `/api/` 요청은 Docker 내부의 Django로 전달한다. HTTP(80) 접속은 HTTPS(443)로 전환한다.
 
-운영 배포는 `main 테스트 성공 → GitHub Actions → AWS OIDC 인증 → Systems Manager → EC2 Docker Compose` 순서로 진행한다. 도메인·HTTPS 적용과 배포 흐름은 [전체 시스템 구성도](docs/deliverables/03_architecture.md#1-전체-구성)에 정리했다.
+운영 배포는 `같은 최신 main의 Python·Frontend·연관 탐색 API 검사 성공 → GitHub Actions → AWS OIDC 인증 → Systems Manager → EC2 Docker Compose` 순서로 진행한다. 도메인·HTTPS 적용과 배포 흐름은 [전체 시스템 구성도](docs/deliverables/03_architecture.md#1-전체-구성)에 정리했다.
 
 의미 검색은 OpenAI API로 질문을 벡터로 바꾼 뒤 Pinecone을 조회하며, BM25 검색과 결합한다. 답변 생성은 EC2에서 RunPod의 HTTPS 프록시를 통해 Ollama에 요청한다. 생성 결과는 Django에서 근거·사진 자료와 연결해 MySQL에 저장하고 브라우저로 반환한다.
 
@@ -113,7 +113,13 @@ docker compose ps
 
 ## 7. 개발·운영·테스트 구분
 
-![GitHub Actions에서 운영·공용 테스트 서버로 이어지는 배포 흐름](docs/deliverables/assets/deployment-flow.png)
+```mermaid
+flowchart LR
+    MAIN["main push"] --> TESTS["Python · Frontend · 연관 탐색 API 검사"]
+    TESTS --> GATE["같은 최신 커밋의 세 검사 성공 확인"]
+    GATE --> PROD["운영 EC2 배포"]
+    PREVIEW["main + preview PR"] --> INTEGRATION["별도 공용 테스트 EC2 배포"]
+```
 
 | 구분 | 목적 | 기준 |
 |---|---|---|
