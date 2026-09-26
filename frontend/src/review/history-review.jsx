@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App, { AnswerView } from '../App';
 import photos from '../data/heritagePhotos.json';
 import '../styles.css';
+import ReportCapturePreview from './ReportCapturePreview';
 
 const records = [
   { id: 'review-1', question: '경복궁 근정전은 어떤 곳인가요?', audience_level: 'general', created_at: '2026-09-18T01:30:00Z', message: '저장 당시 답변 예시입니다. 근정전은 국가의 중요한 의식을 치르던 건물입니다.', response_type: 'answered', citations: [{ title: '경복궁 근정전', source_url: 'https://encykorea.aks.ac.kr/Article/E0002442', content: '검증용 근거 예시입니다.' }] },
@@ -41,7 +42,8 @@ function Review() {
     <label>검증 상황 <select value={mode} onChange={(event) => setMode(event.target.value)}><option value="normal">기록 있음</option><option value="empty">기록 없음</option><option value="failed">목록 조회 실패</option></select></label>
     <p><label>화면 확인 <select value={preview} onChange={(event) => setPreview(event.target.value)}><option value="app">메인·검색 기록</option><option value="loading">답변 준비 중</option><option value="photo">사진 있는 답변</option><option value="no-photo">사진 없는 답변</option><option value="broken">사진 로드 실패</option><option value="correction-duplicate">정정·요약·본문 중복</option><option value="report-v2">PR #20 오류 제보</option><option value="report-fail">오류 제보 전송 실패</option></select></label></p>
     <details><summary>검증 요청 내역</summary><pre>{calls.join('\n')}</pre></details></aside>
-    {preview === "app" ? <App key={mode} request={mode === 'empty' ? emptyRequest : mode === 'failed' ? failedRequest : request} /> : <AnswerView capturePreview key={preview} question={records[0].question} level="general" result={preview === "loading" ? null : previewResult} loading={preview === "loading"} loadingRecord={false} onBack={() => setPreview("app")} onChangeLevel={() => {}} reportMode={preview === "report-v2" ? "v2" : "legacy"} onSubmitReport={async (payload) => { setCalls((items) => [...items, "가상 제보: " + JSON.stringify(payload)]); if (preview === "report-fail") throw new Error("검증용 전송 실패: 입력 내용을 유지합니다."); }} onAsk={() => {}} />}
+    {preview === "app" ? <App key={mode} request={mode === 'empty' ? emptyRequest : mode === 'failed' ? failedRequest : request} /> : <AnswerView key={preview} question={records[0].question} level="general" result={preview === "loading" ? null : previewResult} loading={preview === "loading"} loadingRecord={false} onBack={() => setPreview("app")} onChangeLevel={() => {}} reportMode={preview === "report-v2" ? "v2" : "legacy"} onSubmitReport={async (payload) => { setCalls((items) => [...items, "가상 제보: " + JSON.stringify(payload)]); if (preview === "report-fail") throw new Error("검증용 전송 실패: 입력 내용을 유지합니다."); }} onAsk={() => {}} />}
+    {preview !== "app" && preview !== "loading" && <aside style={{ maxWidth: 700, margin: "24px auto", padding: 16 }}><h2>과거 캡처 시안 · 제보 API와 분리</h2><ReportCapturePreview /></aside>}
   </>;
 }
 createRoot(document.getElementById('root')).render(<Review />);

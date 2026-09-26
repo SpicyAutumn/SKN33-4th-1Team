@@ -1,3 +1,5 @@
+"""Historical 2026-08-28 first-10,000-item handoff; not a current release packager."""
+
 from __future__ import annotations
 
 import csv
@@ -9,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from aks_data.core import load_article_csv  # noqa: E402

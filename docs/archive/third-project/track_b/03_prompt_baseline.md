@@ -1,5 +1,7 @@
 # Prompt Baseline v0 설계
 
+> 3차 프로젝트의 당시 역할·계약·평가 기준을 보존한 자료입니다. 현재 기능은 [4차 산출물](../../../deliverables/README.md)을 기준으로 확인하며, 아래 초안·담당·실험 상태를 현재 서비스 상태로 해석하지 않습니다.
+
 > 작성일: 2026-08-28<br>
 > 현행화일: 2026-09-01<br>
 > 상태: 실제 `RetrievedContext`·`0.3.0-draft` 계약·`generation-eval-v0` 반영<br>
@@ -183,7 +185,7 @@ grounding_decision: {grounding_decision}
 
 Prompt에 전달되는 `RetrievedContext`는 `source_url`을 사용하고 `page`는 포함하지 않는다. metadata의 빈 문자열과 `"NONE"`은 `null`로 정규화하며, 별칭이 없으면 `aliases=[]`를 사용한다. v1 검색 결과의 `chunking_fingerprint`는 `null`일 수 있다. fingerprint와 `chunk_id`는 식별·추적용 값이며 Prompt가 내부 구조를 나누어 해석하지 않는다.
 
-전체 필드와 실제 AKS 예시는 [생성 입출력 계약](02_generation_contract.md)과 [RetrievedContext 계약](../retrieved_context_contract.md)을 따른다.
+전체 필드와 실제 AKS 예시는 [생성 입출력 계약](02_generation_contract.md)과 [RetrievedContext 계약](../../../retrieved_context_contract.md)을 따른다.
 
 ## 7. LLM 출력과 실행 코드의 조립
 

@@ -210,8 +210,8 @@
 
 최신 팀 구성과 프로젝트 개요는 저장소 루트 [README](../../../../README.md)를 따르며, 생성·Fine-tuning 관련 최신 역할과 계약은 다음 문서를 참고한다.
 
-- [Track B 역할 및 업무 범위](../../../track_b/01_role_and_scope.md)
-- [생성 컴포넌트 입출력 계약](../../../track_b/02_generation_contract.md)
-- [Prompt Baseline 설계](../../../track_b/03_prompt_baseline.md)
+- [Track B 역할 및 업무 범위](../../third-project/track_b/01_role_and_scope.md)
+- [생성 컴포넌트 입출력 계약](../../third-project/track_b/02_generation_contract.md)
+- [Prompt Baseline 설계](../../third-project/track_b/03_prompt_baseline.md)
 
 위 후속 내용 역시 최종 서비스명과 모든 기능이 확정되었다는 의미는 아니다. 세부 MVP, 실제 데이터 범위, 평가 기준과 Fine-tuning 채택 여부는 이후 검증 결과에 따라 조정할 수 있다.

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './report-capture-preview.css';
 
 // Review-only: image bytes stay in the browser and are never uploaded.
 export default function ReportCapturePreview() {
@@ -24,7 +25,7 @@ export default function ReportCapturePreview() {
   }, []);
   return <section className="report-capture" aria-label="캡처 미리보기" tabIndex={0}>
     <b>캡처 화면 (선택)</b>
-    <p className="report-help"><kbd>Win + Shift + S</kbd>로 범위를 선택한 뒤, 이 제보창으로 돌아와 <kbd>Ctrl + V</kbd>를 누르세요.</p>
+    <p className="report-help"><kbd>Win + Shift + S</kbd>로 범위를 선택한 뒤, 이 미리보기로 돌아와 <kbd>Ctrl + V</kbd>를 누르세요.</p>
     <div className="report-capture-actions"><label>이미지 파일 선택<input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) accept(file); }} /></label></div>
     <p className="report-help">테스트용 미리보기 · 이미지 1개, 최대 5MB · 서버에 전송되지 않습니다.</p>
     {error && <p role="alert" className="report-help">{error}</p>}

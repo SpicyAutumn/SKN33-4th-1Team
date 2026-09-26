@@ -329,8 +329,8 @@ python scripts/validate_aks_chunks.py `
 - `docs/hybrid_retrieval_evaluation_report.md`
 - `docs/experiments/hybrid_retrieval_experiment_matrix.md`
 - `docs/named_heritage_retrieval_regression_report.md`
-- `docs/track_b/02_generation_contract.md`
-- `docs/track_b/03_prompt_baseline.md`
-- `docs/track_b/04_generation_evaluation_criteria.md`
+- `docs/archive/third-project/track_b/02_generation_contract.md`
+- `docs/archive/third-project/track_b/03_prompt_baseline.md`
+- `docs/archive/third-project/track_b/04_generation_evaluation_criteria.md`
 - GitHub Actions run `33585427145`
 - `3차프로젝트_공유용_수정본.pptx`의 검색·LangGraph·모델 비교 슬라이드

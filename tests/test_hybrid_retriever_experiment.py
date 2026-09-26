@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rag_indexing.hybrid_retriever_experiment import reciprocal_rank_fusion
+from experiments.retrieval.hybrid_retriever import reciprocal_rank_fusion
 
 
 def _result(chunk_id: str, document_id: str, rank: int) -> dict[str, object]:

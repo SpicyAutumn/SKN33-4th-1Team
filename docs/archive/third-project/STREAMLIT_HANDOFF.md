@@ -376,8 +376,8 @@ Streamlit은 하위 모듈(`app/tabs/*.py`) 변경을 자동 반영하지 못한
 
 ## 11. 관련 문서
 
-- `docs/track_b/02_generation_contract.md` — 응답 계약 0.3.0-draft. **가장 먼저 읽을 것**
+- `docs/archive/third-project/track_b/02_generation_contract.md` — 응답 계약 0.3.0-draft. **가장 먼저 읽을 것**
 - `docs/retrieved_context_contract.md` — 검색 반환 형식
-- `docs/track_b/04_generation_evaluation_criteria.md` — 평가 기준
+- `docs/archive/third-project/track_b/04_generation_evaluation_criteria.md` — 평가 기준
 - `docs/document-card.md` — 데이터 출처와 이용조건
 - PR #13 — 이 작업의 리뷰 이력. 왜 이렇게 했는지가 코멘트에 남아 있다

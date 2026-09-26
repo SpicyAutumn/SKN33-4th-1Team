@@ -1,6 +1,8 @@
 # 오류 제보 UI 시안 기록 (현행 API/UI 계약 아님)
 
-이 문서는 2026-09-18 테스트 시안의 기록이다. 단일 유형 선택과 캡처 첨부 제안은 현재 서비스 동작을 설명하지 않는다. 최신 구현 기준 API 계약은 [API 명세](api/API_SPEC.md), 현재 연결된 오류 제보 화면은 `frontend/src/components/ErrorReportBoard.jsx`와 `AdminErrorReportBoard.jsx`에서 확인한다.
+> 보관 자료입니다. 현재 개발용 기록 화면은 제품의 제보 규칙을 검사하며, 캡처 미리보기는 별도 시안 영역으로 분리했습니다. 아래의 미지원 유형과 설명 생략 규칙은 제품 코드에 포함하지 않습니다. 실행 방법은 [개발용 화면 안내](../../../frontend/src/review/README.md)를 참고하세요.
+
+이 문서는 2026-09-18 테스트 시안의 기록이다. 단일 유형 선택과 캡처 첨부 제안은 현재 서비스 동작을 설명하지 않는다. 최신 구현 기준 API 계약은 [API 명세](../../api/API_SPEC.md), 현재 연결된 오류 제보 화면은 `frontend/src/components/ErrorReportBoard.jsx`와 `AdminErrorReportBoard.jsx`에서 확인한다.
 
 ## 현재 구현 기준
 

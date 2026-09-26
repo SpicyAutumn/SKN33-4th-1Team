@@ -83,5 +83,5 @@
 ## 관련 문서
 
 - [검색 결과 링크 동작 및 공유](../SEARCH_RESULT_LINKS.md)
-- [오류 제보 화면의 최신 구현 계약과 과거 시안 구분](../ERROR_REPORT_UI_SPEC.md)
+- [오류 제보 화면의 최신 구현 계약과 과거 시안 구분](../archive/ui/ERROR_REPORT_UI_SPEC.md)
 - OpenAPI/Swagger 기계 판독 문서는 아직 생성하지 않았다. 이 문서는 코드 기준의 사람용 명세다.

@@ -16,14 +16,6 @@
 .report-category-select { margin: 12px 0; }
 .report-category-select label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
 .report-category-select select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid #b9cbbf; border-radius: 8px; background: white; color: #243d35; font-size: 16px; }
-.report-capture { border-top: 1px solid #dce4dd; margin: 12px 0; padding-top: 10px; font-size: 13px; }
-.report-capture-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.report-capture button, .report-capture-actions label { position: relative; background: #edf3ea; color: #285b48; border-radius: 7px; padding: 10px; cursor: pointer; font-size: 12px; }
-.report-capture input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.report-capture-actions label:focus-within { outline: 2px solid #477ba0; }
-.report-capture figure { margin: 8px 0; }
-.report-capture img { max-width: 100%; max-height: 140px; object-fit: contain; display: block; }
-.report-capture figcaption { overflow-wrap: anywhere; margin: 6px 0; }
 .report-quote-tools p, .report-quote blockquote { font-size: 12px; margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 100px; overflow: auto; }
 .report-quote { border-bottom: 1px solid #dce4dd; padding: 8px 0; }
 .report-content-label { display: block; font-size: 13px; font-weight: bold; margin: 16px 0 8px; }

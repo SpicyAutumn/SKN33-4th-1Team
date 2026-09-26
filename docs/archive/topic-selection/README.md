@@ -24,9 +24,9 @@
 ### 후속 설계 참고
 
 - [저장소 루트 README와 현재 팀 구성](../../../README.md)
-- [Track B 역할 및 업무 범위](../../track_b/01_role_and_scope.md)
-- [생성 컴포넌트 입출력 계약](../../track_b/02_generation_contract.md)
-- [Prompt Baseline 설계](../../track_b/03_prompt_baseline.md)
+- [Track B 역할 및 업무 범위](../third-project/track_b/01_role_and_scope.md)
+- [생성 컴포넌트 입출력 계약](../third-project/track_b/02_generation_contract.md)
+- [Prompt Baseline 설계](../third-project/track_b/03_prompt_baseline.md)
 
 ## 2. 디렉터리 구분
 
